@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Notices - Admin Panel | CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Notices</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold mb-0">College Circulars & Notices</h2>
+            <p class="text-muted small mb-0">Create, publish, update, and manage official notices and deadlines.</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.new_notice') }}" class="btn btn-primary px-3 fw-semibold shadow-sm">
+                <i class="bi bi-plus-circle me-1"></i> Create New Notice
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-4">
+        <form method="GET" action="{{ url_for('admin.list_notices') }}" class="row g-2 align-items-center">
+            <!-- Status Tabs / Filter -->
+            <div class="col-md-5">
+                <div class="btn-group w-100" role="group">
+                    <a href="{{ url_for('admin.list_notices', status='all', category_id=selected_category_id, q=search_query) }}"
+                       class="btn btn-sm {{ 'btn-primary' if selected_status == 'all' else 'btn-outline-secondary' }}">
+                        All
+                    </a>
+                    <a href="{{ url_for('admin.list_notices', status='published', category_id=selected_category_id, q=search_query) }}"
+                       class="btn btn-sm {{ 'btn-success' if selected_status == 'published' else 'btn-outline-secondary' }}">
+                        Published
+                    </a>
+                    <a href="{{ url_for('admin.list_notices', status='draft', category_id=selected_category_id, q=search_query) }}"
+                       class="btn btn-sm {{ 'btn-warning' if selected_status == 'draft' else 'btn-outline-secondary' }}">
+                        Drafts
+                    </a>
+                    <a href="{{ url_for('admin.list_notices', status='archived', category_id=selected_category_id, q=search_query) }}"
+                       class="btn btn-sm {{ 'btn-secondary' if selected_status == 'archived' else 'btn-outline-secondary' }}">
+                        Archived
+                    </a>
+                    <a href="{{ url_for('admin.list_notices', status='expired', category_id=selected_category_id, q=search_query) }}"
+                       class="btn btn-sm {{ 'btn-danger' if selected_status == 'expired' else 'btn-outline-secondary' }}">
+                        Expired
+                    </a>
+                </div>
+            </div>
+
+            <!-- Category Filter Dropdown -->
+            <div class="col-md-2">
+                <select name="category_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id }}" {{ 'selected' if selected_category_id == cat.id else '' }}>
+                            {{ cat.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="col-md-4">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" class="form-control" placeholder="Search notices by title, content..." value="{{ search_query }}">
+                </div>
+            </div>
+
+            <!-- Submit / Reset -->
+            <div class="col-md-1 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm w-100" title="Apply Filter">
+                    <i class="bi bi-funnel"></i>
+                </button>
+                {% if selected_status != 'all' or selected_category_id or search_query %}
+                    <a href="{{ url_for('admin.list_notices') }}" class="btn btn-outline-danger btn-sm" title="Clear Filters">
+                        <i class="bi bi-x-circle"></i>
+                    </a>
+                {% endif %}
+            </div>
+            <input type="hidden" name="status" value="{{ selected_status }}">
+        </form>
+    </div>
+
+    <!-- Notices Listing Table -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+        {% if notices %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="min-width: 250px;">Notice Title & Summary</th>
+                            <th>Category</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Milestones</th>
+                            <th>Dates</th>
+                            <th class="text-end" style="min-width: 140px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for n in notices %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('admin.view_notice', notice_id=n.id) }}" class="fw-semibold text-dark text-decoration-none">
+                                        {{ n.title }}
+                                    </a>
+                                    {% if n.summary %}
+                                        <div class="text-muted small text-truncate" style="max-width: 320px;">
+                                            {{ n.summary }}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">
+                                        <i class="bi {{ n.category.icon if n.category else 'bi-bookmark' }} me-1"></i>
+                                        {{ n.category.name if n.category else 'General' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {{ 'bg-danger' if n.priority == 'urgent' else ('bg-warning text-dark' if n.priority == 'high' else ('bg-info text-dark' if n.priority == 'medium' else 'bg-secondary')) }}">
+                                        {{ n.priority|capitalize }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if n.status == 'published' %}
+                                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Published</span>
+                                    {% elif n.status == 'draft' %}
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-pencil me-1"></i>Draft</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary"><i class="bi bi-archive me-1"></i>Archived</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if n.deadlines %}
+                                        <span class="badge bg-info text-dark" title="{{ n.deadlines|length }} milestone(s) attached">
+                                            <i class="bi bi-calendar-event me-1"></i>{{ n.deadlines|length }} milestone{{ 's' if n.deadlines|length != 1 else '' }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted small">None</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small text-muted">
+                                    <div><strong>Created:</strong> {{ n.created_at.strftime('%d-%b-%Y') }}</div>
+                                    {% if n.published_at %}
+                                        <div><strong>Published:</strong> {{ n.published_at.strftime('%d-%b-%Y') }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <!-- View Detail -->
+                                        <a href="{{ url_for('admin.view_notice', notice_id=n.id) }}" class="btn btn-outline-secondary" title="View Preview">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+
+                                        <!-- Edit -->
+                                        <a href="{{ url_for('admin.edit_notice_view', notice_id=n.id) }}" class="btn btn-outline-primary" title="Edit Circular">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+
+                                        <!-- Publication State Actions -->
+                                        {% if n.status == 'draft' %}
+                                            <form method="POST" action="{{ url_for('admin.publish_notice', notice_id=n.id) }}" class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline-success" title="Publish Notice">
+                                                    <i class="bi bi-send-check"></i>
+                                                </button>
+                                            </form>
+                                        {% elif n.status == 'published' %}
+                                            <form method="POST" action="{{ url_for('admin.draft_notice', notice_id=n.id) }}" class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline-warning" title="Move back to Draft">
+                                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{{ url_for('admin.archive_notice', notice_id=n.id) }}" class="d-inline ms-1">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline-secondary" title="Archive Notice">
+                                                    <i class="bi bi-archive"></i>
+                                                </button>
+                                            </form>
+                                        {% elif n.status == 'archived' %}
+                                            <form method="POST" action="{{ url_for('admin.publish_notice', notice_id=n.id) }}" class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline-success" title="Restore to Published">
+                                                    <i class="bi bi-arrow-up-circle"></i>
+                                                </button>
+                                            </form>
+                                        {% endif %}
+
+                                        <!-- Delete -->
+                                        <form method="POST" action="{{ url_for('admin.delete_notice', notice_id=n.id) }}" class="d-inline ms-1" onsubmit="return confirm('Are you sure you want to permanently delete this notice?');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-outline-danger" title="Delete Notice">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                <h5 class="fw-bold">No circulars match your criteria</h5>
+                <p class="small mb-3">Try clearing search filters or create a new campus circular.</p>
+                <a href="{{ url_for('admin.new_notice') }}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle me-1"></i> Create Notice
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

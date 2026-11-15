@@ -1,0 +1,8 @@
+"""
+Student and public portal package.
+"""
+from flask import Blueprint
+
+student_bp = Blueprint("student", __name__)
+
+from app.student import routes  # noqa: E402, F401

@@ -1,0 +1,51 @@
+services:
+  # MySQL 8 Database Service
+  mysql_db:
+    image: mysql:8.0
+    container_name: campusquery_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: RootPassword@2026!
+      MYSQL_DATABASE: campusqueri_db
+      MYSQL_USER: campus_app
+      MYSQL_PASSWORD: StrongCampusPass@2026!
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "campus_app", "-pStrongCampusPass@2026!"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # CampusQuery Flask Web Application (Waitress WSGI)
+  web:
+    build: .
+    container_name: campusquery_app
+    restart: always
+    depends_on:
+      mysql_db:
+        condition: service_healthy
+    environment:
+      FLASK_ENV: production
+      HOST: 0.0.0.0
+      PORT: 5000
+      SECRET_KEY: prod-campusquery-tybca-secret-key-replace-in-cloud-deployment
+      DB_HOST: mysql_db
+      DB_PORT: 3306
+      DB_NAME: campusqueri_db
+      DB_USER: campus_app
+      DB_PASSWORD: StrongCampusPass@2026!
+      DATABASE_URL: mysql+pymysql://campus_app:StrongCampusPass@2026!@mysql_db:3306/campusqueri_db?charset=utf8mb4
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "5000:5000"
+    volumes:
+      - campusquery_uploads:/app/uploads
+      - ./instance:/app/instance
+
+volumes:
+  mysql_data:
+  campusquery_uploads:

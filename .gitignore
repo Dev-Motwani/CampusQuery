@@ -1,0 +1,43 @@
+# Python Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+
+# Uploads and temporary files
+uploads/*
+!uploads/.gitkeep
+!uploads/documents/.gitkeep
+!uploads/flowcharts/.gitkeep
+
+# Logs and runtime artifacts
+*.log
+logs/
+
+# IDE and OS files
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+Desktop.ini
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local databases and instance
+instance/*
+!instance/.gitkeep
+*.db
+scratch/

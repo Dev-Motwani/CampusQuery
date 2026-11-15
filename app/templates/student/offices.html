@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Administrative Offices &amp; Help Desks | CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="row align-items-center mb-4">
+        <div class="col-lg-8">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('student.index') }}">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Offices</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold mb-1">Campus Administrative Offices &amp; Help Desks</h2>
+            <p class="text-muted small mb-0">Contact details, physical counter locations, operating hours, and document submission instructions.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+            <a href="{{ url_for('student.list_notices') }}" class="btn btn-outline-primary btn-sm px-3 fw-medium">
+                <i class="bi bi-newspaper me-1"></i> View All Circulars
+            </a>
+        </div>
+    </div>
+
+    <!-- Offices Grid -->
+    {% if offices %}
+        <div class="row g-4">
+            {% for office in offices %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 border-0 shadow-sm rounded-4 hover-shadow transition-all bg-white d-flex flex-column">
+                        <div class="card-body p-4 d-flex flex-column flex-grow-1">
+                            <!-- Card Header -->
+                            <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
+                                <div class="rounded-circle bg-primary-subtle text-primary p-3 d-inline-flex align-items-center justify-content-center">
+                                    <i class="bi bi-building fs-5"></i>
+                                </div>
+                                {% if office.is_sample %}
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small">
+                                        <i class="bi bi-info-circle me-1"></i>SAMPLE
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle small">
+                                        Active
+                                    </span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Office Details -->
+                            <h5 class="fw-bold text-dark mb-1">{{ office.office_name }}</h5>
+                            <div class="text-primary small fw-semibold mb-3">{{ office.department or 'Campus Administration' }}</div>
+
+                            <ul class="list-unstyled small mb-3 flex-grow-1">
+                                <li class="mb-2 text-muted d-flex align-items-start gap-2">
+                                    <i class="bi bi-geo-alt-fill text-danger mt-1"></i>
+                                    <span><strong>Location:</strong> {{ office.building_room }}</span>
+                                </li>
+                                <li class="mb-2 text-muted d-flex align-items-start gap-2">
+                                    <i class="bi bi-clock-fill text-warning mt-1"></i>
+                                    <span><strong>Hours:</strong> {{ office.office_hours }}</span>
+                                </li>
+                                <li class="mb-2 text-muted d-flex align-items-start gap-2">
+                                    <i class="bi bi-person-fill text-info mt-1"></i>
+                                    <span><strong>Officer:</strong> {{ office.contact_person }}</span>
+                                </li>
+                                <li class="mb-2 text-muted d-flex align-items-start gap-2 text-break">
+                                    <i class="bi bi-envelope-fill text-secondary mt-1"></i>
+                                    <span><a href="mailto:{{ office.contact_email }}" class="text-decoration-none">{{ office.contact_email }}</a></span>
+                                </li>
+                                {% if office.contact_phone %}
+                                    <li class="mb-2 text-muted d-flex align-items-start gap-2">
+                                        <i class="bi bi-telephone-fill text-success mt-1"></i>
+                                        <span>{{ office.contact_phone }}</span>
+                                    </li>
+                                {% endif %}
+                            </ul>
+
+                            {% if office.visit_instructions %}
+                                <div class="p-2 bg-light rounded-3 small text-muted mb-3 border-start border-3 border-primary">
+                                    <strong>Visit Note:</strong> {{ office.visit_instructions[:110] }}{% if office.visit_instructions|length > 110 %}...{% endif %}
+                                </div>
+                            {% endif %}
+
+                            <!-- Action -->
+                            <div class="mt-auto pt-2 border-top">
+                                <a href="{{ url_for('student.view_office', office_id=office.id) }}" class="btn btn-outline-primary btn-sm w-100 fw-medium">
+                                    <i class="bi bi-info-circle me-1"></i> Counter Details &amp; Circulars
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-5 bg-white rounded-4 shadow-sm p-5">
+            <i class="bi bi-building-slash fs-1 text-muted mb-3 d-block"></i>
+            <h5 class="fw-bold">No Offices Listed</h5>
+            <p class="text-muted small">Campus office information will be posted here soon.</p>
+            <a href="{{ url_for('student.index') }}" class="btn btn-outline-primary btn-sm px-3">Return to Home</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

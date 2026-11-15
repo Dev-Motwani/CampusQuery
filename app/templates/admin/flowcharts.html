@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Flowcharts - Admin Panel | CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb & Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Flowcharts</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold mb-0">Procedural Flowcharts &amp; Visual Guides</h2>
+            <p class="text-muted small mb-0">Create, edit, and link interactive process diagrams to student notices with step generators and exports.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('flowcharts.new_flowchart') }}" class="btn btn-primary px-3 fw-semibold shadow-sm">
+                <i class="bi bi-diagram-3-fill me-1"></i> New Flowchart
+            </a>
+        </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-4">
+        <form method="GET" action="{{ url_for('flowcharts.admin_flowcharts') }}" class="row g-2 align-items-center">
+            <div class="col-md-8">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" class="form-control border-start-0" placeholder="Search diagrams by title or description..." value="{{ search_query }}">
+                </div>
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-primary px-3">Filter</button>
+                {% if search_query %}
+                    <a href="{{ url_for('flowcharts.admin_flowcharts') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Flowcharts Table Card -->
+    <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+        <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold text-dark mb-0">Saved Academic Flowcharts</h6>
+            <span class="badge bg-primary-subtle text-primary border px-2 py-1">
+                {{ flowcharts|length }} Total Diagram{{ 's' if flowcharts|length != 1 else '' }}
+            </span>
+        </div>
+
+        {% if flowcharts %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" style="width: 32%;">Flowchart Title &amp; Summary</th>
+                            <th scope="col" style="width: 18%;">Diagram Complexity</th>
+                            <th scope="col" style="width: 25%;">Linked Notices</th>
+                            <th scope="col" style="width: 10%;">Created</th>
+                            <th scope="col" class="text-end" style="width: 15%;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fc in flowcharts %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="rounded-3 p-2 bg-primary-subtle text-primary me-3 fs-4">
+                                            <i class="bi bi-diagram-3-fill"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark mb-1">
+                                                <a href="{{ url_for('flowcharts.view_flowchart', flowchart_id=fc.id) }}" class="text-dark text-decoration-none hover-primary">
+                                                    {{ fc.title }}
+                                                </a>
+                                            </div>
+                                            {% if fc.description %}
+                                                <div class="small text-muted text-truncate" style="max-width: 340px;">
+                                                    {{ fc.description }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap gap-1 align-items-center">
+                                        <span class="badge bg-light text-dark border">
+                                            <i class="bi bi-node-plus me-1"></i>{{ fc.node_count }} Steps
+                                        </span>
+                                        <span class="badge bg-light text-dark border">
+                                            <i class="bi bi-arrows-collapse me-1"></i>{{ fc.edge_count }} Transitions
+                                        </span>
+                                        {% if fc.has_decision_nodes %}
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                                <i class="bi bi-signpost-split me-1"></i>Yes/No Decisions
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if fc.notice_links %}
+                                        <div class="d-flex flex-column gap-1">
+                                            {% for nl in fc.notice_links %}
+                                                <div class="d-flex align-items-center gap-1 small">
+                                                    <span class="badge {{ 'bg-success' if nl.notice.status == 'published' else ('bg-warning text-dark' if nl.notice.status == 'draft' else 'bg-secondary') }} py-0 px-1" style="font-size: 0.65rem;">
+                                                        {{ nl.notice.status|capitalize }}
+                                                    </span>
+                                                    <a href="{{ url_for('admin.view_notice', notice_id=nl.notice.id) }}" class="text-decoration-none text-dark fw-medium text-truncate" style="max-width: 140px;" title="{{ nl.notice.title }}">
+                                                        {{ nl.notice.title }}
+                                                    </a>
+                                                    <form method="POST" action="{{ url_for('flowcharts.detach_from_notice', flowchart_id=fc.id, notice_id=nl.notice.id) }}" class="d-inline ms-1" onsubmit="return confirm('Detach diagram from this circular?');">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                        <button type="submit" class="btn btn-link btn-sm text-danger p-0 border-0" title="Detach"><i class="bi bi-x"></i></button>
+                                                    </form>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="badge bg-light text-muted border small">Unattached</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="small text-muted">{{ fc.created_at.strftime('%d-%b-%Y') }}</div>
+                                    <div class="small text-muted" style="font-size: 0.75rem;">by {{ fc.creator.full_name if fc.creator else 'Admin' }}</div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <!-- Interactive View -->
+                                        <a href="{{ url_for('flowcharts.view_flowchart', flowchart_id=fc.id) }}" class="btn btn-outline-primary" title="View Interactive Diagram">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+
+                                        <!-- Edit -->
+                                        <a href="{{ url_for('flowcharts.edit_flowchart', flowchart_id=fc.id) }}" class="btn btn-outline-secondary" title="Edit Diagram">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+
+                                        <!-- Attach Modal Trigger -->
+                                        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#attachModal{{ fc.id }}" title="Attach to Circular">
+                                            <i class="bi bi-link-45deg"></i>
+                                        </button>
+
+                                        <!-- Export Dropdown -->
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Export Diagram">
+                                                <i class="bi bi-download"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                                <li><h6 class="dropdown-header">Export Genuine Diagram</h6></li>
+                                                <li>
+                                                    <a class="dropdown-item small" href="{{ url_for('flowcharts.export_png', flowchart_id=fc.id) }}">
+                                                        <i class="bi bi-file-earmark-image me-2 text-primary"></i> Download PNG Image
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item small" href="{{ url_for('flowcharts.export_pdf', flowchart_id=fc.id) }}">
+                                                        <i class="bi bi-file-earmark-pdf me-2 text-danger"></i> Download PDF Document
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+
+                                        <!-- Delete -->
+                                        <form method="POST" action="{{ url_for('flowcharts.delete_flowchart', flowchart_id=fc.id) }}" class="d-inline" onsubmit="return confirm('Permanently delete flowchart \'{{ fc.title }}\'?');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-outline-danger" title="Delete Flowchart">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- Attach to Notice Modal -->
+                            <div class="modal fade" id="attachModal{{ fc.id }}" tabindex="-1" aria-labelledby="attachModalLabel{{ fc.id }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content border-0 shadow">
+                                        <form method="POST" action="{{ url_for('flowcharts.attach_to_notice', flowchart_id=fc.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title fw-bold" id="attachModalLabel{{ fc.id }}">Link Diagram to Notice</h5>
+                                                <button type="button" class="btn-close" data-bs-toggle="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p class="small text-muted mb-3">Attach <strong>{{ fc.title }}</strong> to an official college notice circular:</p>
+                                                <div class="mb-3">
+                                                    <label class="form-label small fw-semibold">Target Notice Circular <span class="text-danger">*</span></label>
+                                                    <select name="notice_id" class="form-select" required>
+                                                        <option value="">-- Choose Notice Circular --</option>
+                                                        {% for n in notices %}
+                                                            <option value="{{ n.id }}">{{ n.title }} ({{ n.status|capitalize }})</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label small fw-semibold">Display Caption (Optional)</label>
+                                                    <input type="text" name="caption" class="form-control" placeholder="e.g., Visual Procedure for Hall Ticket Clearance" value="Procedure for {{ fc.title[:50] }}">
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer bg-light">
+                                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-success fw-semibold">Link Diagram</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-diagram-3 fs-1 text-secondary opacity-50 mb-3 d-block"></i>
+                <h5>No Flowcharts Found</h5>
+                <p class="small mb-3">No procedural diagrams match your query. Create one using the step generator or visual canvas.</p>
+                <a href="{{ url_for('flowcharts.new_flowchart') }}" class="btn btn-primary px-3 fw-semibold">
+                    <i class="bi bi-plus-lg me-1"></i> Create First Flowchart
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

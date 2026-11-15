@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Offices - Admin Panel | CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb & Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Offices</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold mb-0">Administrative &amp; Department Offices</h2>
+            <p class="text-muted small mb-0">Manage campus desks, operating hours, contact persons, and student visit/submission instructions.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary px-3 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#createOfficeModal">
+                <i class="bi bi-plus-circle me-1"></i> Add Office
+            </button>
+        </div>
+    </div>
+
+    <!-- Office Table Card -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+        {% if offices %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Office &amp; Department</th>
+                            <th>Location</th>
+                            <th>Contact Person</th>
+                            <th>Hours</th>
+                            <th>Status</th>
+                            <th>Milestones</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for office in offices %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle bg-info-subtle text-info p-2 d-inline-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                            <i class="bi bi-building fs-6"></i>
+                                        </div>
+                                        <div>
+                                            <strong class="d-block text-dark">{{ office.office_name }}</strong>
+                                            <span class="small text-muted">{{ office.department or 'General Administration' }}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="small text-dark fw-medium"><i class="bi bi-geo-alt me-1 text-danger"></i>{{ office.building_room }}</span>
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        <div class="fw-medium text-dark">{{ office.contact_person }}</div>
+                                        <div class="text-muted"><i class="bi bi-envelope me-1"></i>{{ office.contact_email }}</div>
+                                        {% if office.contact_phone %}
+                                            <div class="text-muted"><i class="bi bi-telephone me-1"></i>{{ office.contact_phone }}</div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="small text-muted" style="max-width: 180px;">
+                                    <i class="bi bi-clock me-1 text-primary"></i>{{ office.office_hours }}
+                                </td>
+                                <td>
+                                    {% if office.is_sample %}
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                            <i class="bi bi-info-circle me-1"></i>SAMPLE
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                            <i class="bi bi-check-circle me-1"></i>Live Office
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border rounded-pill px-3 py-1">
+                                        {{ office.deadlines|length }} milestone{{ 's' if office.deadlines|length != 1 else '' }}
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <!-- Edit Modal Trigger -->
+                                        <button type="button" class="btn btn-outline-primary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editModal{{ office.id }}"
+                                                title="Edit Office">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+
+                                        <!-- Delete (Disabled if deadlines exist) -->
+                                        {% if office.deadlines|length == 0 %}
+                                            <form method="POST" action="{{ url_for('admin.delete_office', office_id=office.id) }}" class="d-inline" onsubmit="return confirm('Delete office {{ office.office_name }}?');">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline-danger" title="Delete Office">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <button type="button" class="btn btn-outline-secondary disabled" title="Cannot delete: office linked to {{ office.deadlines|length }} milestone(s)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- Edit Modal for this office -->
+                            <div class="modal fade" id="editModal{{ office.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ office.id }}" aria-hidden="true">
+                                <div class="modal-dialog modal-lg modal-dialog-centered">
+                                    <div class="modal-content border-0 shadow">
+                                        <form method="POST" action="{{ url_for('admin.edit_office', office_id=office.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <div class="modal-header border-bottom">
+                                                <h5 class="modal-title fw-bold" id="editModalLabel{{ office.id }}">
+                                                    <i class="bi bi-pencil-square me-2 text-primary"></i> Edit Office Information
+                                                </h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body p-4">
+                                                <div class="row g-3">
+                                                    <div class="col-md-8">
+                                                        <label class="form-label fw-semibold small">Office / Counter Name <span class="text-danger">*</span></label>
+                                                        <input type="text" name="office_name" class="form-control" value="{{ office.office_name }}" required>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label fw-semibold small">Department / Cell</label>
+                                                        <input type="text" name="department" class="form-control" value="{{ office.department or '' }}" placeholder="e.g. Exam Section">
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label fw-semibold small">Building &amp; Room Location <span class="text-danger">*</span></label>
+                                                        <input type="text" name="building_room" class="form-control" value="{{ office.building_room }}" required>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label fw-semibold small">Contact Person <span class="text-danger">*</span></label>
+                                                        <input type="text" name="contact_person" class="form-control" value="{{ office.contact_person }}" required>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label fw-semibold small">Contact Email <span class="text-danger">*</span></label>
+                                                        <input type="email" name="contact_email" class="form-control" value="{{ office.contact_email }}" required>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label fw-semibold small">Contact Phone</label>
+                                                        <input type="text" name="contact_phone" class="form-control" value="{{ office.contact_phone or '' }}">
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label fw-semibold small">Operating Office Hours <span class="text-danger">*</span></label>
+                                                        <input type="text" name="office_hours" class="form-control" value="{{ office.office_hours }}" required>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label fw-semibold small">Visit &amp; Physical Submission Instructions</label>
+                                                        <textarea name="visit_instructions" class="form-control" rows="3" placeholder="e.g. Token system applies. Bring valid College ID and original documents.">{{ office.visit_instructions or '' }}</textarea>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox" name="is_sample" value="1" id="editSample{{ office.id }}" {{ 'checked' if office.is_sample else '' }}>
+                                                            <label class="form-check-label fw-semibold small text-muted" for="editSample{{ office.id }}">
+                                                                Mark visibly as SAMPLE / Demo Data
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer border-top bg-light">
+                                                <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-primary btn-sm px-4 fw-semibold">Save Changes</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-building-exclamation fs-1 text-muted mb-3 d-block"></i>
+                <h5 class="fw-bold">No Administrative Offices Defined</h5>
+                <p class="text-muted small">Add your college's administrative desks, fee counters, and departments.</p>
+                <button class="btn btn-primary btn-sm px-3" data-bs-toggle="modal" data-bs-target="#createOfficeModal">
+                    <i class="bi bi-plus-circle me-1"></i> Add First Office
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Create Office Modal -->
+<div class="modal fade" id="createOfficeModal" tabindex="-1" aria-labelledby="createOfficeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="POST" action="{{ url_for('admin.create_office') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header border-bottom">
+                    <h5 class="modal-title fw-bold" id="createOfficeModalLabel">
+                        <i class="bi bi-building-add me-2 text-primary"></i> Add New Administrative Office
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold small">Office / Counter Name <span class="text-danger">*</span></label>
+                            <input type="text" name="office_name" class="form-control" placeholder="e.g. Student Welfare & Scholarship Desk" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small">Department / Cell</label>
+                            <input type="text" name="department" class="form-control" placeholder="e.g. Welfare Directorate">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Building &amp; Room Location <span class="text-danger">*</span></label>
+                            <input type="text" name="building_room" class="form-control" placeholder="e.g. Student Amenities Block, Counter 4" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Contact Person <span class="text-danger">*</span></label>
+                            <input type="text" name="contact_person" class="form-control" placeholder="e.g. Prof. / Mr. Desk Officer" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Contact Email <span class="text-danger">*</span></label>
+                            <input type="email" name="contact_email" class="form-control" placeholder="e.g. office@campusqueri.edu" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small">Contact Phone</label>
+                            <input type="text" name="contact_phone" class="form-control" placeholder="e.g. +91 20 2550 0100">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small">Operating Office Hours <span class="text-danger">*</span></label>
+                            <input type="text" name="office_hours" class="form-control" value="Mon-Fri 10:00 AM - 04:30 PM" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small">Visit &amp; Submission Instructions</label>
+                            <textarea name="visit_instructions" class="form-control" rows="3" placeholder="e.g. Hardcopy submissions accepted during counter hours. Bring original College ID."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="is_sample" value="1" id="createSample" checked>
+                                <label class="form-check-label fw-semibold small text-muted" for="createSample">
+                                    Mark visibly as SAMPLE / Demo Data
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top bg-light">
+                    <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm px-4 fw-semibold">Create Office</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

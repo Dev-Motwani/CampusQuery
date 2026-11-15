@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+
+{% block title %}Academic AI Assistant - CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb & Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('student.index') }}" class="text-decoration-none">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">AI Assistant</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold mb-0 text-dark">
+                <i class="bi bi-robot text-primary me-2"></i>CampusQuery Academic Assistant
+            </h2>
+            <p class="text-muted small mb-0">
+                Grounded academic advisor providing verified information from published circulars, deadlines, and criteria.
+            </p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            {% if api_key_configured %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
+                    <i class="bi bi-cpu me-1"></i> Gemini AI Active
+                </span>
+            {% else %}
+                <span class="badge bg-info-subtle text-info border border-info-subtle px-3 py-2 rounded-pill" title="Running in directory search mode">
+                    <i class="bi bi-search me-1"></i> Grounded Directory Mode
+                </span>
+            {% endif %}
+            <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">
+                <i class="bi bi-file-earmark-check me-1"></i> {{ published_count }} Published Circulars
+            </span>
+            <button id="clearChatBtn" class="btn btn-outline-secondary btn-sm rounded-pill px-3" title="Clear conversation">
+                <i class="bi bi-trash3 me-1"></i> Clear
+            </button>
+        </div>
+    </div>
+
+    <!-- Informational Disclaimer Alert (Requirement 18) -->
+    <div class="alert alert-warning border-0 shadow-sm rounded-4 d-flex align-items-start gap-3 py-2 px-3 mb-3" role="alert">
+        <i class="bi bi-shield-exclamation text-warning fs-5 mt-1"></i>
+        <div class="small text-dark">
+            <strong>Official Guidance Notice:</strong> {{ disclaimer }}
+        </div>
+    </div>
+
+    <!-- Chat Card -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white mb-4">
+        <!-- Chat Message Stream Window -->
+        <div id="chatStream" class="p-4" style="height: 520px; overflow-y: auto; background-color: #f8fafc;">
+            
+            <!-- Welcome Assistant Message -->
+            <div class="d-flex align-items-start gap-3 mb-4">
+                <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center flex-shrink-0 shadow-sm" style="width: 40px; height: 40px;">
+                    <i class="bi bi-robot fs-5"></i>
+                </div>
+                <div class="flex-grow-1" style="max-width: 85%;">
+                    <div class="bg-white p-3 rounded-4 shadow-sm border border-light">
+                        <div class="fw-bold text-primary mb-1">CampusQuery Assistant</div>
+                        <p class="mb-2 text-dark small">
+                            Hello! I am your official academic query assistant. You can ask me questions about:
+                        </p>
+                        <ul class="small text-muted mb-3 ps-3">
+                            <li>Post-matric scholarships, income criteria, and mandatory certificates</li>
+                            <li>State CET CAP application forms, verification, and facilitation centers</li>
+                            <li>Semester examination fee schedules, deadlines, and hall ticket clearance</li>
+                            <li>Sports quota eligibility, trials, and documentation</li>
+                            <li>Office locations, working hours, and contact information</li>
+                        </ul>
+
+                        <!-- Suggestion Chips -->
+                        <div class="small fw-semibold text-secondary mb-2">Suggested Inquiries:</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for sq in suggested_queries %}
+                                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill suggestion-chip py-1 px-3" data-prompt="{{ sq.prompt }}">
+                                    <i class="bi {{ sq.icon }} me-1"></i>{{ sq.title }}
+                                </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="text-muted small mt-1 ps-1" style="font-size: 0.72rem;">
+                        Verified against approved college records • Real-time database sync
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Messages Appended Here via JavaScript -->
+
+        </div>
+
+        <!-- Chat Input Form -->
+        <div class="border-top p-3 bg-white">
+            <form id="chatForm" class="d-flex align-items-center gap-2">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="userQueryInput" 
+                        class="form-control rounded-start-pill px-4 border-end-0 py-2" 
+                        placeholder="Ask an academic question (e.g. scholarship documents, CET deadline, exam fee)..." 
+                        maxlength="300"
+                        autocomplete="off"
+                        required
+                    >
+                    <button class="btn btn-primary rounded-end-pill px-4 fw-semibold d-flex align-items-center gap-2" type="submit" id="sendBtn">
+                        <span>Send</span>
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </div>
+            </form>
+            <div class="d-flex justify-content-between align-items-center px-3 pt-2">
+                <span class="text-muted" style="font-size: 0.72rem;">
+                    <i class="bi bi-lock me-1"></i> Privacy Protected: Inquiries are grounded on approved published circulars only.
+                </span>
+                <span id="charCounter" class="text-muted" style="font-size: 0.72rem;">0/300</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const chatStream = document.getElementById("chatStream");
+    const chatForm = document.getElementById("chatForm");
+    const queryInput = document.getElementById("userQueryInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const charCounter = document.getElementById("charCounter");
+    const clearBtn = document.getElementById("clearChatBtn");
+    const csrfToken = "{{ csrf_token() }}";
+
+    // Track conversation history in sessionStorage for persistence across navigation
+    const STORAGE_KEY = "campusquery_assistant_history";
+
+    function loadHistory() {
+        try {
+            const raw = sessionStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const items = JSON.parse(raw);
+                items.forEach(msg => {
+                    if (msg.role === "user") {
+                        appendUserBubble(msg.text, false);
+                    } else if (msg.role === "assistant") {
+                        appendAssistantBubble(msg.data, false);
+                    }
+                });
+                scrollToBottom();
+            }
+        } catch (e) {
+            console.warn("Failed to restore assistant chat history:", e);
+        }
+    }
+
+    function saveHistoryItem(item) {
+        try {
+            const raw = sessionStorage.getItem(STORAGE_KEY);
+            const items = raw ? JSON.parse(raw) : [];
+            items.push(item);
+            // Cap history to 30 messages
+            if (items.length > 30) items.shift();
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+        } catch (e) {
+            console.warn("Failed saving chat history item:", e);
+        }
+    }
+
+    // Input character counter
+    queryInput.addEventListener("input", function() {
+        charCounter.textContent = `${this.value.length}/300`;
+    });
+
+    // Suggestion chips handler
+    document.querySelectorAll(".suggestion-chip").forEach(btn => {
+        btn.addEventListener("click", function() {
+            const prompt = this.getAttribute("data-prompt");
+            if (prompt) {
+                queryInput.value = prompt;
+                queryInput.focus();
+                charCounter.textContent = `${prompt.length}/300`;
+                chatForm.dispatchEvent(new Event("submit"));
+            }
+        });
+    });
+
+    // Clear chat button
+    clearBtn.addEventListener("click", function() {
+        if (confirm("Clear current conversation history?")) {
+            sessionStorage.removeItem(STORAGE_KEY);
+            // Remove user and assistant messages, keep initial welcome
+            const messages = chatStream.querySelectorAll(".chat-message-item");
+            messages.forEach(m => m.remove());
+        }
+    });
+
+    // Scroll chat to bottom smoothly
+    function scrollToBottom() {
+        chatStream.scrollTop = chatStream.scrollHeight;
+    }
+
+    // Render User Bubble
+    function appendUserBubble(text, save = true) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "d-flex justify-content-end mb-4 chat-message-item";
+        wrapper.innerHTML = `
+            <div class="d-flex align-items-start gap-2" style="max-width: 80%;">
+                <div class="bg-primary text-white p-3 rounded-4 shadow-sm text-break small">
+                    <div class="fw-semibold mb-1" style="font-size: 0.75rem; opacity: 0.9;">Student Inquiry</div>
+                    <div>${escapeHtml(text)}</div>
+                </div>
+                <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 36px; height: 36px;">
+                    <i class="bi bi-person-fill"></i>
+                </div>
+            </div>
+        `;
+        chatStream.appendChild(wrapper);
+        scrollToBottom();
+
+        if (save) {
+            saveHistoryItem({ role: "user", text: text });
+        }
+    }
+
+    // Render Assistant Bubble
+    function appendAssistantBubble(data, save = true) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "d-flex align-items-start gap-3 mb-4 chat-message-item";
+
+        // Format Markdown-like bold and bullet lists
+        let formattedAnswer = formatMarkdownText(data.answer || "");
+
+        // Build Verified Sources Pills (Requirement 12)
+        let sourcesHtml = "";
+        if (data.sources && data.sources.length > 0) {
+            sourcesHtml = `
+                <div class="mt-3 pt-3 border-top">
+                    <div class="fw-bold small text-secondary mb-2 d-flex align-items-center gap-1">
+                        <i class="bi bi-check2-circle text-success"></i>
+                        <span>Verified Official Sources:</span>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        ${data.sources.map(s => {
+                            const icon = s.type === "document" ? "bi-file-earmark-pdf text-danger" : "bi-newspaper text-primary";
+                            const badgeClass = s.is_expired ? "bg-warning-subtle text-warning-emphasis border" : "bg-success-subtle text-success border border-success-subtle";
+                            return `
+                                <a href="${escapeHtml(s.url)}" class="btn btn-sm btn-light border rounded-pill d-flex align-items-center gap-2 py-1 px-3 shadow-sm text-decoration-none" target="_blank">
+                                    <i class="bi ${icon}"></i>
+                                    <span class="fw-semibold text-dark">${escapeHtml(s.title)}</span>
+                                    <span class="badge ${badgeClass}" style="font-size: 0.65rem;">
+                                        ${escapeHtml(s.status_label || (s.is_expired ? "Expired" : "Active"))}
+                                    </span>
+                                </a>
+                            `;
+                        }).join("")}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Build Verified Office Referral Card (Requirement 14)
+        let officeHtml = "";
+        if (data.office_referral) {
+            const off = data.office_referral;
+            officeHtml = `
+                <div class="mt-3 card border-0 bg-light-subtle rounded-3 p-3 border">
+                    <div class="fw-bold text-dark small mb-1 d-flex align-items-center gap-2">
+                        <i class="bi bi-building text-primary"></i>
+                        <span>Verified Administrative Referral: ${escapeHtml(off.office_name)}</span>
+                    </div>
+                    <div class="small text-muted mb-2">
+                        <i class="bi bi-geo-alt me-1"></i>${escapeHtml(off.building_room || "")}
+                        ${off.office_hours ? ` • <i class="bi bi-clock me-1"></i>${escapeHtml(off.office_hours)}` : ""}
+                    </div>
+                    <div class="d-flex flex-wrap gap-3 small">
+                        ${off.contact_phone ? `<span><i class="bi bi-telephone text-secondary me-1"></i><a href="tel:${escapeHtml(off.contact_phone)}" class="text-decoration-none">${escapeHtml(off.contact_phone)}</a></span>` : ""}
+                        ${off.contact_email ? `<span><i class="bi bi-envelope text-secondary me-1"></i><a href="mailto:${escapeHtml(off.contact_email)}" class="text-decoration-none">${escapeHtml(off.contact_email)}</a></span>` : ""}
+                    </div>
+                    ${off.visit_instructions ? `<div class="small text-muted mt-2 pt-2 border-top"><strong>Instructions:</strong> ${escapeHtml(off.visit_instructions)}</div>` : ""}
+                </div>
+            `;
+        }
+
+        // Mode badge indicator
+        const isAi = data.mode === "gemini_grounded";
+        const modeBadge = isAi 
+            ? `<span class="badge bg-success-subtle text-success py-0 px-2" style="font-size: 0.65rem;"><i class="bi bi-cpu me-1"></i>Grounded Gemini AI</span>`
+            : `<span class="badge bg-info-subtle text-info py-0 px-2" style="font-size: 0.65rem;"><i class="bi bi-search me-1"></i>Verified Directory Search</span>`;
+
+        wrapper.innerHTML = `
+            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center flex-shrink-0 shadow-sm" style="width: 40px; height: 40px;">
+                <i class="bi bi-robot fs-5"></i>
+            </div>
+            <div class="flex-grow-1" style="max-width: 85%;">
+                <div class="bg-white p-4 rounded-4 shadow-sm border border-light">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold text-primary small">CampusQuery Assistant</span>
+                        ${modeBadge}
+                    </div>
+                    <div class="text-dark small leading-relaxed chat-response-body">
+                        ${formattedAnswer}
+                    </div>
+                    ${sourcesHtml}
+                    ${officeHtml}
+                </div>
+                <div class="text-muted small mt-1 ps-1" style="font-size: 0.72rem;">
+                    Answers are strictly bound to approved published notices.
+                </div>
+            </div>
+        `;
+
+        chatStream.appendChild(wrapper);
+        scrollToBottom();
+
+        if (save) {
+            saveHistoryItem({ role: "assistant", data: data });
+        }
+    }
+
+    // Render Temporary Loading Dots
+    function appendLoadingBubble() {
+        const wrapper = document.createElement("div");
+        wrapper.id = "loadingBubble";
+        wrapper.className = "d-flex align-items-start gap-3 mb-4 chat-message-item";
+        wrapper.innerHTML = `
+            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center flex-shrink-0 shadow-sm" style="width: 40px; height: 40px;">
+                <i class="bi bi-robot fs-5"></i>
+            </div>
+            <div class="bg-white p-3 rounded-4 shadow-sm border border-light d-flex align-items-center gap-2">
+                <span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>
+                <span class="small text-muted">Consulting verified college notices and criteria...</span>
+            </div>
+        `;
+        chatStream.appendChild(wrapper);
+        scrollToBottom();
+    }
+
+    function removeLoadingBubble() {
+        const loading = document.getElementById("loadingBubble");
+        if (loading) loading.remove();
+    }
+
+    // Simple, Safe Markdown Formatter
+    function formatMarkdownText(raw) {
+        if (!raw) return "";
+        let clean = escapeHtml(raw);
+
+        // Bold (**text**)
+        clean = clean.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        // Italic (*text*)
+        clean = clean.replace(/\*([^\*]+?)\*/g, '<em>$1</em>');
+        // Headings (### Header)
+        clean = clean.replace(/^### (.*$)/gim, '<h6 class="fw-bold text-dark mt-2 mb-1">$1</h6>');
+        clean = clean.replace(/^## (.*$)/gim, '<h5 class="fw-bold text-dark mt-3 mb-1">$1</h5>');
+        // Bullet points (- text)
+        clean = clean.replace(/^\s*-\s+(.*$)/gim, '<li>$1</li>');
+        clean = clean.replace(/(<li>.*<\/li>)/gms, '<ul class="mb-2 ps-3">$1</ul>');
+        // Double newlines into paragraphs
+        clean = clean.replace(/\n\n+/g, '<br><br>');
+        // Single newlines
+        clean = clean.replace(/\n/g, '<br>');
+
+        return clean;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return str
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // Submit Chat Inquiry
+    chatForm.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const queryText = queryInput.value.trim();
+
+        if (!queryText) {
+            queryInput.focus();
+            return;
+        }
+
+        // Disable input while processing
+        queryInput.value = "";
+        charCounter.textContent = "0/300";
+        queryInput.disabled = true;
+        sendBtn.disabled = true;
+
+        appendUserBubble(queryText);
+        appendLoadingBubble();
+
+        try {
+            const resp = await fetch("{{ url_for('assistant.query') }}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken,
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify({ query: queryText })
+            });
+
+            const data = await resp.json();
+            removeLoadingBubble();
+
+            if (data.answer) {
+                appendAssistantBubble(data);
+            } else {
+                appendAssistantBubble({
+                    answer: data.message || "An unexpected response was received. Please check the notices directory.",
+                    sources: [],
+                    mode: "error_fallback"
+                });
+            }
+        } catch (err) {
+            console.error("Assistant request error:", err);
+            removeLoadingBubble();
+            appendAssistantBubble({
+                answer: "The assistant connection encountered a temporary network issue. Please verify your connection or browse the notices directory.",
+                sources: [],
+                mode: "network_error"
+            });
+        } finally {
+            queryInput.disabled = false;
+            sendBtn.disabled = false;
+            queryInput.focus();
+            scrollToBottom();
+        }
+    });
+
+    // Restore previous session chat history
+    loadHistory();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}Student Portal & Dashboard - CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Student Header & Welcome Banner -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-primary text-white">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold mb-2">
+                    <i class="bi bi-mortarboard-fill me-1"></i> Student Portal Active
+                </span>
+                <h2 class="fw-bold mb-1">Welcome back, {{ user.full_name }}</h2>
+                <div class="d-flex flex-wrap gap-3 small text-white-50 mt-2">
+                    <span><i class="bi bi-person-badge text-warning me-1"></i> Roll No: <strong class="text-white">{{ user.roll_number or 'TYBCA-2026' }}</strong></span>
+                    <span><i class="bi bi-envelope text-warning me-1"></i> {{ user.email }}</span>
+                    <span><i class="bi bi-shield-check text-warning me-1"></i> Verified Account</span>
+                </div>
+            </div>
+            <div class="col-lg-4 mt-3 mt-lg-0">
+                <!-- Quick Search Input -->
+                <form action="{{ url_for('student.list_notices') }}" method="GET" class="d-flex">
+                    <div class="input-group">
+                        <input type="text" name="q" class="form-control form-control-lg border-0 shadow-sm" placeholder="Search notices, exams, forms..." aria-label="Search notices">
+                        <button class="btn btn-warning text-dark fw-bold px-3" type="submit">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Metric Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white border-start border-4 border-primary h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-semibold">Active Circulars</div>
+                        <h3 class="fw-bold mb-0 text-primary">{{ total_published }}</h3>
+                        <small class="text-muted">Published campus notices</small>
+                    </div>
+                    <div class="bg-primary-subtle text-primary p-3 rounded-circle">
+                        <i class="bi bi-megaphone-fill fs-3"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white border-start border-4 border-danger h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-semibold">Urgent Circulars</div>
+                        <h3 class="fw-bold mb-0 text-danger">{{ urgent_count }}</h3>
+                        <small class="text-muted">Requiring immediate attention</small>
+                    </div>
+                    <div class="bg-danger-subtle text-danger p-3 rounded-circle">
+                        <i class="bi bi-exclamation-octagon-fill fs-3"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white border-start border-4 border-warning h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small fw-semibold">Upcoming Deadlines</div>
+                        <h3 class="fw-bold mb-0 text-warning">{{ upcoming_count }}</h3>
+                        <small class="text-muted">Pending target milestones</small>
+                    </div>
+                    <div class="bg-warning-subtle text-warning p-3 rounded-circle">
+                        <i class="bi bi-hourglass-split fs-3"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Academic Categories Section (Scholarships, Admissions, CET, Examinations, Sports, Events, General) -->
+    <div class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h4 class="fw-bold mb-0 text-dark"><i class="bi bi-grid-fill text-primary me-2"></i>Academic Notice Categories</h4>
+                <p class="text-muted small mb-0">Browse published circulars, guidelines, and forms by institutional department</p>
+            </div>
+            <a href="{{ url_for('student.list_notices') }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                View All Circulars <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+        </div>
+
+        <div class="row g-3">
+            {% for cat in categories %}
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <a href="{{ url_for('student.list_notices', category=cat.slug) }}" class="text-decoration-none">
+                        <div class="card border-0 shadow-sm rounded-3 p-3 h-100 bg-white category-tile border-top border-3 {{ 'border-primary' if loop.index % 3 == 1 else ('border-success' if loop.index % 3 == 2 else 'border-warning') }}">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="bg-light p-2 rounded-3 text-primary fs-4">
+                                    <i class="bi {{ cat.icon or 'bi-bookmark' }}"></i>
+                                </div>
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">
+                                    {{ cat.published_notice_count }} notices
+                                </span>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-1">{{ cat.name }}</h6>
+                            <p class="text-muted small mb-0 line-clamp-2">
+                                {{ cat.description or 'Official circulars, notifications, and procedures.' }}
+                            </p>
+                        </div>
+                    </a>
+                </div>
+            {% else %}
+                <div class="col-12">
+                    <div class="alert alert-light border text-center p-3">
+                        <p class="text-muted mb-0">No active categories found in database.</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Main Content Columns: Notices & Milestones -->
+    <div class="row g-4">
+        <!-- Left Column: Urgent Alerts & Published Notices -->
+        <div class="col-lg-7">
+            <!-- Urgent Announcements Box -->
+            {% if urgent_notices %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-danger-subtle border-start border-4 border-danger">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-exclamation-triangle-fill text-danger fs-4 me-2"></i>
+                        <h5 class="fw-bold text-danger mb-0">Urgent Academic Notifications</h5>
+                    </div>
+                    <div class="list-group list-group-flush bg-transparent">
+                        {% for un in urgent_notices %}
+                            <div class="list-group-item bg-transparent px-0 py-2 border-bottom border-danger-subtle">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <a href="{{ url_for('student.view_notice', notice_id=un.id) }}" class="fw-bold text-dark text-decoration-none">
+                                        {{ un.title }}
+                                    </a>
+                                    <span class="badge bg-danger ms-2">URGENT</span>
+                                </div>
+                                <p class="small text-muted mb-0 mt-1">{{ un.summary or un.content[:100] }}...</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Published Circulars Feed -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-newspaper text-primary me-2"></i>Latest Official Circulars</h5>
+                    <span class="badge bg-light text-muted border px-2 py-1">Recent Updates</span>
+                </div>
+
+                {% if notices %}
+                    <div class="list-group list-group-flush">
+                        {% for notice in notices %}
+                            <div class="list-group-item px-0 py-3 border-bottom">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="badge bg-light text-primary border">
+                                        <i class="bi {{ notice.category.icon if notice.category else 'bi-tag' }} me-1"></i>
+                                        {{ notice.category.name if notice.category else 'General' }}
+                                    </span>
+                                    <span class="badge {{ 'bg-danger' if notice.priority == 'urgent' else ('bg-warning text-dark' if notice.priority == 'high' else 'bg-secondary') }} px-2 py-1">
+                                        {{ notice.priority|upper }}
+                                    </span>
+                                </div>
+                                <h6 class="fw-bold mb-1">
+                                    <a href="{{ url_for('student.view_notice', notice_id=notice.id) }}" class="text-dark text-decoration-none hover-primary">
+                                        {{ notice.title }}
+                                    </a>
+                                </h6>
+                                <p class="text-muted small mb-2 line-clamp-2">
+                                    {{ notice.summary or notice.content[:120] }}...
+                                </p>
+                                <div class="d-flex justify-content-between align-items-center small text-muted">
+                                    <span>
+                                        <i class="bi bi-clock me-1"></i>
+                                        {{ notice.published_at.strftime('%b %d, %Y') if notice.published_at else 'Recent' }}
+                                    </span>
+                                    <a href="{{ url_for('student.view_notice', notice_id=notice.id) }}" class="text-primary fw-semibold text-decoration-none">
+                                        View Details <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="text-center mt-3 pt-2">
+                        <a href="{{ url_for('student.list_notices') }}" class="btn btn-outline-primary btn-sm px-4 rounded-pill">
+                            Explore All Notices &amp; Search <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox text-muted display-4 mb-2"></i>
+                        <h6 class="fw-bold text-secondary">No published circulars available</h6>
+                        <p class="text-muted small">Check back later for newly published notices.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Right Column: Deadlines Timeline & Notifications -->
+        <div class="col-lg-5">
+            <!-- Upcoming Milestone Deadlines -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-calendar2-check-fill text-warning me-2"></i>Upcoming Milestones</h5>
+                    <span class="badge bg-warning-subtle text-warning border px-2 py-1">Derived Status</span>
+                </div>
+
+                {% if deadlines %}
+                    <div class="list-group list-group-flush">
+                        {% for dl in deadlines %}
+                            <div class="list-group-item px-0 py-3 border-bottom">
+                                <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+                                    <span class="fw-bold text-dark">{{ dl.milestone_name }}</span>
+                                    <span class="badge {{ dl.status_badge.badge_class }} small text-nowrap">
+                                        <i class="bi {{ dl.status_badge.icon }} me-1"></i>{{ dl.status_badge.label }}
+                                    </span>
+                                </div>
+                                <div class="small text-muted mb-1">
+                                    Notice: <a href="{{ url_for('student.view_notice', notice_id=dl.notice.id) }}" class="text-primary text-decoration-none">{{ dl.notice.title[:45] }}...</a>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center small text-secondary">
+                                    <span>
+                                        <i class="bi bi-clock me-1"></i> {{ dl.formatted_due_date }}
+                                    </span>
+                                    {% if dl.office %}
+                                        <a href="{{ url_for('student.view_office', office_id=dl.office.id) }}" class="text-decoration-none text-muted small" title="View Counter Details">
+                                            <i class="bi bi-geo-alt-fill text-danger me-1"></i> {{ dl.office.building_room }}
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted small mb-0 py-3 text-center">No pending deadline milestones at this time.</p>
+                {% endif %}
+            </div>
+
+            <!-- Student Notifications Card -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-bell-fill text-info me-2"></i>Alerts &amp; Reminders</h5>
+                    <a href="{{ url_for('student.list_notifications') }}" class="btn btn-outline-primary btn-sm px-2 py-0 small">
+                        Inbox {% if unread_notifications_count > 0 %}({{ unread_notifications_count }}){% endif %}
+                    </a>
+                </div>
+
+                {% if notifications %}
+                    <div class="list-group list-group-flush">
+                        {% for notif in notifications %}
+                            <div class="list-group-item px-0 py-2 border-bottom {{ 'bg-light-subtle rounded px-2' if not notif.is_read else '' }}">
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                                    <div class="fw-semibold text-dark small d-flex align-items-center gap-1">
+                                        <i class="bi {{ notif.icon_class }} small"></i>
+                                        <span>{{ notif.title }}</span>
+                                    </div>
+                                    {% if not notif.is_read %}
+                                        <span class="badge bg-danger rounded-pill" style="font-size: 0.65rem;">New</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-muted small mb-1">{{ notif.message }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted" style="font-size: 0.75rem;">
+                                        <i class="bi bi-clock me-1"></i> {{ notif.created_at.strftime('%b %d, %I:%M %p') }}
+                                    </span>
+                                    {% if notif.notice_id %}
+                                        <a href="{{ url_for('student.view_notice', notice_id=notif.notice_id) }}" class="small text-primary text-decoration-none">
+                                            View Notice
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('student.list_notifications') }}" class="btn btn-light btn-sm text-primary w-100 border">
+                            View All Notifications <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                {% else %}
+                    <p class="text-muted small mb-0 py-3 text-center">No new notifications in your inbox.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

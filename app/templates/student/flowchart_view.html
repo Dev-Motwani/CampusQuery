@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}{{ flowchart.title }} - Procedural Flowchart | CampusQuery{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/drawflow.min.css') }}">
+
+<div class="container py-4">
+    <!-- Breadcrumbs -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="{{ url_for('student.index') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('student.list_notices') }}">Circulars</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ flowchart.title }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header Card -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-success-subtle text-success border px-2 py-1">
+                        <i class="bi bi-diagram-3-fill me-1"></i> Official Procedure
+                    </span>
+                    <span class="badge bg-light text-dark border">
+                        {{ flowchart.node_count }} Total Steps
+                    </span>
+                    <span class="badge bg-light text-dark border">
+                        {{ flowchart.edge_count }} Transitions
+                    </span>
+                    {% if flowchart.has_decision_nodes %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis border">
+                            <i class="bi bi-signpost-split me-1"></i> Branching Logic
+                        </span>
+                    {% endif %}
+                </div>
+                <h2 class="fw-bold text-dark mb-1">{{ flowchart.title }}</h2>
+                <p class="text-muted small mb-0">{{ flowchart.description or 'Official step-by-step procedural workflow for student guidelines and academic clearance.' }}</p>
+            </div>
+
+            <!-- Export Buttons (Requirement 12) -->
+            <div class="d-flex align-items-center gap-2">
+                <a href="{{ url_for('flowcharts.export_png', flowchart_id=flowchart.id) }}" class="btn btn-outline-primary px-3 shadow-sm" title="Download High-Resolution PNG">
+                    <i class="bi bi-file-earmark-image me-1"></i> Export PNG
+                </a>
+                <a href="{{ url_for('flowcharts.export_pdf', flowchart_id=flowchart.id) }}" class="btn btn-outline-danger px-3 shadow-sm" title="Download Official PDF Document">
+                    <i class="bi bi-file-earmark-pdf me-1"></i> Export PDF
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Canvas Card -->
+    <div class="card border-0 shadow-sm rounded-4 bg-white p-3 mb-4 position-relative">
+        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+            <span class="small text-muted fw-semibold">
+                <i class="bi bi-arrows-move me-1"></i> Click and drag canvas to pan. Use mouse wheel or buttons to zoom.
+            </span>
+            <div class="d-flex gap-1">
+                <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="zoomIn()" title="Zoom In">
+                    <i class="bi bi-zoom-in"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="zoomOut()" title="Zoom Out">
+                    <i class="bi bi-zoom-out"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="zoomReset()" title="Reset Zoom">
+                    <i class="bi bi-arrows-fullscreen"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Read-only Drawflow Mount Point -->
+        <div id="drawflow-viewer" class="drawflow-view-mode"></div>
+    </div>
+
+    <!-- Two-Column Reference: Step Breakdown & Associated Notices -->
+    <div class="row g-4">
+        <!-- Col 8: Step-by-Step Breakdown Table -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                <h5 class="fw-bold text-dark mb-3">
+                    <i class="bi bi-list-check text-primary me-2"></i>Procedural Steps Index
+                </h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" style="width: 10%;">Step</th>
+                                <th scope="col" style="width: 20%;">Type</th>
+                                <th scope="col" style="width: 70%;">Instruction / Procedure</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for node in flowchart.graph_data.get('nodes', []) %}
+                                <tr>
+                                    <td>
+                                        <span class="fw-bold text-dark">#{{ loop.index }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ 'bg-success' if node.type == 'start' else ('bg-danger' if node.type == 'end' else ('bg-warning text-dark' if node.type == 'decision' else 'bg-primary')) }} small">
+                                            {{ node.type|upper }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">{{ node.label }}</div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Col 4: Associated Notices -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                <h5 class="fw-bold text-dark mb-3">
+                    <i class="bi bi-newspaper text-secondary me-2"></i>Associated Notices
+                </h5>
+                {% if flowchart.notice_links %}
+                    <div class="list-group list-group-flush">
+                        {% for nl in flowchart.notice_links %}
+                            {% if nl.notice and (nl.notice.status == 'published' or (current_user and current_user.is_admin)) %}
+                                <a href="{{ url_for('student.view_notice', notice_id=nl.notice.id) }}" class="list-group-item list-group-item-action px-0 py-2 border-0">
+                                    <div class="fw-bold text-dark">{{ nl.notice.title }}</div>
+                                    {% if nl.caption %}
+                                        <div class="small text-muted">{{ nl.caption }}</div>
+                                    {% endif %}
+                                    <span class="badge {{ 'bg-success' if nl.notice.status == 'published' else 'bg-secondary' }} py-0 px-1 mt-1" style="font-size: 0.65rem;">
+                                        {{ nl.notice.status|capitalize }}
+                                    </span>
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted small mb-0">This procedural diagram is general reference.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Drawflow Vendor Script -->
+<script src="{{ url_for('static', filename='js/drawflow.min.js') }}"></script>
+
+<script>
+    const GRAPH_DATA = {{ flowchart.graph_data|tojson }};
+    let viewer = null;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const container = document.getElementById("drawflow-viewer");
+        viewer = new Drawflow(container);
+        viewer.reroute = true;
+        viewer.reroute_fix_curvature = true;
+        viewer.editor_mode = 'view'; // Read-only mode for students (Requirement 11)
+        viewer.start();
+
+        // Import graph
+        if (GRAPH_DATA.drawflow && GRAPH_DATA.drawflow.Home && Object.keys(GRAPH_DATA.drawflow.Home.data).length > 0) {
+            viewer.import(GRAPH_DATA);
+        } else if (GRAPH_DATA.nodes) {
+            loadNodesIntoViewer(GRAPH_DATA);
+        }
+
+        // Disable node dragging in view mode
+        viewer.editor_mode = 'view';
+    });
+
+    function loadNodesIntoViewer(graph) {
+        const nodeMap = {};
+        graph.nodes.forEach(n => {
+            const nid = n.id;
+            const ntype = n.type || "process";
+            const label = n.label || `Step ${nid}`;
+            const x = n.x || 100;
+            const y = n.y || 100;
+
+            const numInputs = (ntype === "start") ? 0 : 1;
+            const numOutputs = (ntype === "end") ? 0 : ((ntype === "decision") ? 2 : 1);
+
+            const badgeClass = {
+                start: "bg-success text-white",
+                process: "bg-primary text-white",
+                decision: "bg-warning text-dark",
+                end: "bg-danger text-white"
+            }[ntype] || "bg-secondary text-white";
+
+            const html = `
+                <div class='node-card-body node-type-${ntype}'>
+                    <div class='node-header'><span class='badge ${badgeClass}'>${ntype.toUpperCase()}</span></div>
+                    <div class='node-label fw-bold mt-1'>${escapeHtml(label)}</div>
+                </div>
+            `;
+            const createdId = viewer.addNode(ntype, numInputs, numOutputs, x, y, `node-${ntype}`, { label: label, type: ntype }, html);
+            nodeMap[nid] = createdId;
+        });
+
+        if (graph.edges) {
+            graph.edges.forEach(e => {
+                const src = nodeMap[e.source] || e.source;
+                const tgt = nodeMap[e.target] || e.target;
+                const isNo = (e.label && (e.label.toLowerCase() === "no" || e.label.toLowerCase() === "false"));
+                const outPort = isNo ? "output_2" : "output_1";
+                try {
+                    viewer.addConnection(src, tgt, outPort, "input_1");
+                } catch (err) {
+                    console.warn("Viewer connection error:", err);
+                }
+            });
+        }
+    }
+
+    function zoomIn() { viewer.zoom_in(); }
+    function zoomOut() { viewer.zoom_out(); }
+    function zoomReset() { viewer.zoom_reset(); }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+</script>
+{% endblock %}

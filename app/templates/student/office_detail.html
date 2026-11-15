@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}{{ office.office_name }} | CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-3">
+            <li class="breadcrumb-item"><a href="{{ url_for('student.index') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('student.list_offices') }}">Offices</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ office.office_name }}</li>
+        </ol>
+    </nav>
+
+    <!-- Main Header Card -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1">
+                        <i class="bi bi-building me-1"></i> {{ office.department or 'Administrative Desk' }}
+                    </span>
+                    {% if office.is_sample %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1">
+                            <i class="bi bi-info-circle me-1"></i> SAMPLE OFFICE
+                        </span>
+                    {% endif %}
+                </div>
+                <h2 class="fw-bold text-dark mb-1">{{ office.office_name }}</h2>
+                <p class="text-muted mb-0"><i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ office.building_room }}</p>
+            </div>
+            <div>
+                <a href="{{ url_for('student.list_offices') }}" class="btn btn-outline-secondary btn-sm px-3">
+                    <i class="bi bi-arrow-left me-1"></i> All Offices
+                </a>
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Info Grid -->
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded-3 h-100">
+                    <div class="text-muted small fw-semibold text-uppercase mb-1">
+                        <i class="bi bi-clock-fill text-warning me-1"></i> Operating Hours
+                    </div>
+                    <div class="fw-bold text-dark">{{ office.office_hours }}</div>
+                    <small class="text-muted">Working academic days</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded-3 h-100">
+                    <div class="text-muted small fw-semibold text-uppercase mb-1">
+                        <i class="bi bi-person-fill text-info me-1"></i> Desk In-Charge
+                    </div>
+                    <div class="fw-bold text-dark">{{ office.contact_person }}</div>
+                    <small class="text-muted">{{ office.department or 'Staff Officer' }}</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded-3 h-100">
+                    <div class="text-muted small fw-semibold text-uppercase mb-1">
+                        <i class="bi bi-envelope-fill text-primary me-1"></i> Contact Desk
+                    </div>
+                    <div class="fw-bold"><a href="mailto:{{ office.contact_email }}" class="text-decoration-none">{{ office.contact_email }}</a></div>
+                    {% if office.contact_phone %}
+                        <small class="text-muted">{{ office.contact_phone }}</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Visit & Submission Instructions -->
+        {% if office.visit_instructions %}
+            <div class="alert alert-info border-0 rounded-3 mt-4 mb-0 p-4">
+                <h6 class="fw-bold mb-2">
+                    <i class="bi bi-info-circle-fill me-2 text-info"></i> Physical Visit &amp; Document Submission Instructions
+                </h6>
+                <div class="text-dark small lh-lg" style="white-space: pre-line;">{{ office.visit_instructions }}</div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Active Milestones Handled by this Office -->
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                <h5 class="fw-bold text-dark mb-3">
+                    <i class="bi bi-calendar-check text-warning me-2"></i> Upcoming Deadlines at this Counter
+                </h5>
+                {% if active_deadlines %}
+                    <div class="list-group list-group-flush">
+                        {% for dl in active_deadlines %}
+                            <div class="list-group-item px-0 py-3 border-bottom">
+                                <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                                    <h6 class="fw-bold text-dark mb-0">{{ dl.milestone_name }}</h6>
+                                    <span class="badge {{ dl.status_badge.badge_class }} small">
+                                        <i class="bi {{ dl.status_badge.icon }} me-1"></i>{{ dl.status_badge.label }}
+                                    </span>
+                                </div>
+                                <div class="small text-muted mb-2">
+                                    <i class="bi bi-clock me-1"></i> Due: {{ dl.formatted_due_date }}
+                                </div>
+                                {% if dl.instructions %}
+                                    <div class="small text-muted bg-light p-2 rounded mb-2">
+                                        {{ dl.instructions }}
+                                    </div>
+                                {% endif %}
+                                <div class="small">
+                                    <a href="{{ url_for('student.view_notice', notice_id=dl.notice.id) }}" class="text-primary text-decoration-none fw-medium">
+                                        <i class="bi bi-link-45deg"></i> Circular: {{ dl.notice.title }}
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted small mb-0 py-3">No pending deadlines scheduled at this counter.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                <h5 class="fw-bold text-dark mb-3">
+                    <i class="bi bi-newspaper text-primary me-2"></i> Related Published Circulars
+                </h5>
+                {% if published_notices %}
+                    <div class="list-group list-group-flush">
+                        {% for n in published_notices %}
+                            <a href="{{ url_for('student.view_notice', notice_id=n.id) }}" class="list-group-item list-group-item-action px-0 py-3 border-bottom">
+                                <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                                    <h6 class="fw-bold text-dark mb-0">{{ n.title }}</h6>
+                                    <span class="badge bg-light text-dark border small">{{ n.category.name if n.category else 'General' }}</span>
+                                </div>
+                                <p class="text-muted small mb-1">{{ n.summary or n.content[:100] }}</p>
+                                <div class="text-muted small">
+                                    <i class="bi bi-calendar3 me-1"></i> Published: {{ n.formatted_published_date }}
+                                </div>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted small mb-0 py-3">No published circulars currently assigned to this office.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

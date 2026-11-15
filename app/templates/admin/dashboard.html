@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-warning text-dark px-3 py-1 rounded-pill fw-semibold">
+                    <i class="bi bi-shield-lock-fill me-1"></i> Administrator Authority
+                </span>
+                <span class="text-muted small">Campus Operations & Content Management</span>
+            </div>
+            <h2 class="fw-bold mb-0">Academic Operations Dashboard</h2>
+            <p class="text-muted small mb-0">Logged in as <strong>{{ admin.full_name }}</strong> ({{ admin.email }})</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.new_notice') }}" class="btn btn-primary btn-sm px-3 fw-semibold shadow-sm">
+                <i class="bi bi-plus-circle me-1"></i> Create Notice
+            </a>
+            <a href="{{ url_for('admin.list_notices') }}" class="btn btn-outline-primary btn-sm px-3 fw-semibold">
+                <i class="bi bi-card-checklist me-1"></i> Manage Notices
+            </a>
+            <a href="{{ url_for('admin.list_categories') }}" class="btn btn-outline-secondary btn-sm px-3 fw-semibold">
+                <i class="bi bi-tags me-1"></i> Categories
+            </a>
+            <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger btn-sm px-2" title="Sign Out">
+                <i class="bi bi-box-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Verified Database Summaries (Requirement 1) -->
+    <div class="row g-3 mb-4">
+        <!-- Published -->
+        <div class="col-xl-2 col-md-4 col-6">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white text-center h-100 border-start border-4 border-success">
+                <div class="text-muted small fw-semibold">Published</div>
+                <h3 class="fw-bold mb-0 text-success mt-1">{{ published_count }}</h3>
+                <small class="text-success"><i class="bi bi-eye me-1"></i>Live to Students</small>
+            </div>
+        </div>
+        <!-- Drafts -->
+        <div class="col-xl-2 col-md-4 col-6">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white text-center h-100 border-start border-4 border-warning">
+                <div class="text-muted small fw-semibold">Drafts</div>
+                <h3 class="fw-bold mb-0 text-warning mt-1">{{ drafts_count }}</h3>
+                <small class="text-muted"><i class="bi bi-pencil me-1"></i>In Preparation</small>
+            </div>
+        </div>
+        <!-- Archived -->
+        <div class="col-xl-2 col-md-4 col-6">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white text-center h-100 border-start border-4 border-secondary">
+                <div class="text-muted small fw-semibold">Archived</div>
+                <h3 class="fw-bold mb-0 text-secondary mt-1">{{ archived_count }}</h3>
+                <small class="text-muted"><i class="bi bi-archive me-1"></i>Historical</small>
+            </div>
+        </div>
+        <!-- Expired Notices -->
+        <div class="col-xl-2 col-md-4 col-6">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white text-center h-100 border-start border-4 border-danger">
+                <div class="text-muted small fw-semibold">Expired</div>
+                <h3 class="fw-bold mb-0 text-danger mt-1">{{ expired_count }}</h3>
+                <small class="text-danger"><i class="bi bi-hourglass-bottom me-1"></i>Past Expiry</small>
+            </div>
+        </div>
+        <!-- Upcoming Deadlines -->
+        <div class="col-xl-2 col-md-4 col-6">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white text-center h-100 border-start border-4 border-info">
+                <div class="text-muted small fw-semibold">Upcoming Deadlines</div>
+                <h3 class="fw-bold mb-0 text-info mt-1">{{ upcoming_deadlines_count }}</h3>
+                <small class="text-muted">{{ total_deadlines_count }} total milestones</small>
+            </div>
+        </div>
+        <!-- Total Documents -->
+        <div class="col-xl-2 col-md-4 col-6">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white text-center h-100 border-start border-4 border-primary">
+                <div class="text-muted small fw-semibold">Documents</div>
+                <h3 class="fw-bold mb-0 text-primary mt-1">{{ documents_count }}</h3>
+                <small class="text-muted"><i class="bi bi-files me-1"></i>PDF / Circulars</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Secondary Counters: Categories & Students -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-12">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white d-flex flex-row justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small d-block">Active Notice Categories</span>
+                    <h4 class="fw-bold mb-0 text-dark">{{ categories_count }} Academic Sections</h4>
+                </div>
+                <a href="{{ url_for('admin.list_categories') }}" class="btn btn-outline-primary btn-sm">Manage Categories</a>
+            </div>
+        </div>
+        <div class="col-md-6 col-12">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white d-flex flex-row justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small d-block">Registered Students</span>
+                    <h4 class="fw-bold mb-0 text-dark">{{ students_count }} Enrolled Users</h4>
+                </div>
+                <span class="badge bg-light text-dark border px-3 py-2">Role: Student</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area: Recent Notices & Upcoming Milestones -->
+    <div class="row g-4 mb-4">
+        <!-- Recent Notices Table -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-journal-text text-primary me-2"></i>Recent Circulars</h5>
+                    <a href="{{ url_for('admin.list_notices') }}" class="btn btn-outline-primary btn-sm">
+                        View All ({{ notices_count }}) &rarr;
+                    </a>
+                </div>
+
+                {% if recent_notices %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Category</th>
+                                    <th>Priority</th>
+                                    <th>Status</th>
+                                    <th>Milestones</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for n in recent_notices %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('admin.view_notice', notice_id=n.id) }}" class="fw-semibold text-dark text-decoration-none">
+                                                {{ n.title }}
+                                            </a>
+                                            <div class="text-muted small">
+                                                <span>{{ n.created_at.strftime('%d-%b-%Y') }}</span>
+                                                {% if n.is_expired %}
+                                                    <span class="badge bg-danger-subtle text-danger ms-1">Expired</span>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-light text-dark border">
+                                                <i class="bi {{ n.category.icon if n.category else 'bi-bookmark' }} me-1"></i>
+                                                {{ n.category.name if n.category else 'General' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ 'bg-danger' if n.priority == 'urgent' else ('bg-warning text-dark' if n.priority == 'high' else 'bg-secondary') }}">
+                                                {{ n.priority|capitalize }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ 'bg-success' if n.status == 'published' else ('bg-warning text-dark' if n.status == 'draft' else 'bg-secondary') }}">
+                                                {{ n.status|capitalize }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info text-dark rounded-pill">
+                                                {{ n.deadlines|length }} milestone{{ 's' if n.deadlines|length != 1 else '' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{{ url_for('admin.view_notice', notice_id=n.id) }}" class="btn btn-outline-secondary" title="View Detail">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                                <a href="{{ url_for('admin.edit_notice_view', notice_id=n.id) }}" class="btn btn-outline-primary" title="Edit Notice">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                                {% if n.status == 'draft' %}
+                                                    <form method="POST" action="{{ url_for('admin.publish_notice', notice_id=n.id) }}" class="d-inline">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                        <button type="submit" class="btn btn-outline-success" title="Publish Notice">
+                                                            <i class="bi bi-check-circle"></i>
+                                                        </button>
+                                                    </form>
+                                                {% elif n.status == 'published' %}
+                                                    <form method="POST" action="{{ url_for('admin.archive_notice', notice_id=n.id) }}" class="d-inline">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                        <button type="submit" class="btn btn-outline-secondary" title="Archive Notice">
+                                                            <i class="bi bi-archive"></i>
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-folder2-open display-4 d-block mb-2"></i>
+                        <p class="mb-2">No notices created yet.</p>
+                        <a href="{{ url_for('admin.new_notice') }}" class="btn btn-primary btn-sm">Create First Notice</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Right Column: Upcoming Deadlines & Categories -->
+        <div class="col-lg-4">
+            <!-- Upcoming Deadlines Card -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                <h6 class="fw-bold mb-3"><i class="bi bi-clock-history text-primary me-2"></i>Upcoming Deadlines</h6>
+                {% if upcoming_deadlines %}
+                    <div class="list-group list-group-flush">
+                        {% for dl in upcoming_deadlines %}
+                            <div class="list-group-item px-0 py-2 border-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong class="d-block small text-dark">{{ dl.milestone_name }}</strong>
+                                        <small class="text-muted d-block">{{ dl.notice.title|truncate(35) if dl.notice else '' }}</small>
+                                    </div>
+                                    <span class="badge bg-info-subtle text-info border border-info-subtle small">
+                                        {{ dl.days_remaining }}d left
+                                    </span>
+                                </div>
+                                <div class="small text-secondary mt-1">
+                                    <i class="bi bi-calendar3 me-1"></i>Due {{ dl.due_date.strftime('%d-%b-%Y') }}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted small mb-0">No upcoming deadline milestones.</p>
+                {% endif %}
+            </div>
+
+            <!-- Categories Card -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-tags text-primary me-2"></i>Categories</h6>
+                    <a href="{{ url_for('admin.list_categories') }}" class="small text-primary text-decoration-none">Manage &rarr;</a>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for cat in categories %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 border-0">
+                            <span class="d-flex align-items-center gap-2">
+                                <i class="bi {{ cat.icon }} text-primary"></i>
+                                <span class="small fw-semibold">{{ cat.name }}</span>
+                            </span>
+                            <span class="badge bg-light text-dark border rounded-pill">{{ cat.notices|length }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

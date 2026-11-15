@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications &amp; Academic Alerts | CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb & Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('student.dashboard') }}">Student Portal</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Notifications</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold mb-0">Notifications &amp; Academic Alerts</h2>
+            <p class="text-muted small mb-0">In-dashboard alerts for new circulars, deadline milestones, and schedule updates.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            {% if unread_count > 0 %}
+                <form method="POST" action="{{ url_for('student.mark_all_read') }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-primary btn-sm px-3 fw-semibold shadow-sm">
+                        <i class="bi bi-check2-all me-1"></i> Mark All as Read ({{ unread_count }})
+                    </button>
+                </form>
+            {% endif %}
+            <a href="{{ url_for('student.dashboard') }}" class="btn btn-light btn-sm px-3 border">
+                <i class="bi bi-arrow-left me-1"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Pills -->
+    <div class="d-flex gap-2 mb-4">
+        <a href="{{ url_for('student.list_notifications', filter='all') }}"
+           class="btn btn-sm {{ 'btn-primary' if filter_state == 'all' else 'btn-outline-secondary' }} px-3 rounded-pill fw-medium">
+            All Alerts ({{ notifications|length if filter_state == 'all' else '' }})
+        </a>
+        <a href="{{ url_for('student.list_notifications', filter='unread') }}"
+           class="btn btn-sm {{ 'btn-primary' if filter_state == 'unread' else 'btn-outline-secondary' }} px-3 rounded-pill fw-medium">
+            Unread {% if unread_count > 0 %}<span class="badge bg-danger rounded-pill ms-1">{{ unread_count }}</span>{% endif %}
+        </a>
+        <a href="{{ url_for('student.list_notifications', filter='read') }}"
+           class="btn btn-sm {{ 'btn-primary' if filter_state == 'read' else 'btn-outline-secondary' }} px-3 rounded-pill fw-medium">
+            Read Archive
+        </a>
+    </div>
+
+    <!-- Notifications List -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+        {% if notifications %}
+            <div class="list-group list-group-flush">
+                {% for notif in notifications %}
+                    <div class="list-group-item px-3 py-3 border-bottom {{ 'bg-light-subtle border-start border-3 border-primary rounded-3 mb-2' if not notif.is_read else '' }}">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                            <div class="d-flex align-items-start gap-3">
+                                <div class="rounded-circle p-2 mt-1 d-inline-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background-color: #f1f5f9;">
+                                    <i class="bi {{ notif.icon_class }} fs-5"></i>
+                                </div>
+                                <div>
+                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                        <h6 class="fw-bold text-dark mb-0 {{ 'text-primary' if not notif.is_read else '' }}">{{ notif.title }}</h6>
+                                        <span class="badge {{ notif.badge_class }} small">
+                                            {{ notif.notification_type|replace('_', ' ')|capitalize }}
+                                        </span>
+                                        {% if not notif.is_read %}
+                                            <span class="badge bg-danger text-white small">New</span>
+                                        {% endif %}
+                                    </div>
+                                    <p class="text-muted small mb-2 lh-base">{{ notif.message }}</p>
+                                    <div class="d-flex flex-wrap align-items-center gap-3 small text-muted">
+                                        <span><i class="bi bi-clock me-1"></i>{{ notif.created_at.strftime('%d %b %Y at %I:%M %p') }} UTC</span>
+                                        {% if notif.notice_id %}
+                                            <a href="{{ url_for('student.view_notice', notice_id=notif.notice_id) }}" class="text-primary text-decoration-none fw-semibold">
+                                                <i class="bi bi-link-45deg"></i> Open Notice
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                {% if not notif.is_read %}
+                                    <form method="POST" action="{{ url_for('student.mark_read', notification_id=notif.id) }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-outline-secondary btn-sm px-2 py-1 text-nowrap" title="Mark as Read">
+                                            <i class="bi bi-check2 me-1"></i> Mark Read
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <span class="text-muted small"><i class="bi bi-check2-all text-success me-1"></i>Read</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-bell-slash fs-1 text-muted mb-3 d-block"></i>
+                <h5 class="fw-bold">No Notifications Found</h5>
+                <p class="text-muted small">
+                    {% if filter_state == 'unread' %}
+                        You're all caught up! No unread notifications at this time.
+                    {% else %}
+                        Campus announcements and deadline alerts will appear in this inbox.
+                    {% endif %}
+                </p>
+                <a href="{{ url_for('student.dashboard') }}" class="btn btn-outline-primary btn-sm px-3">
+                    Return to Portal
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

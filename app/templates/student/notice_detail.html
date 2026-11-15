@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+
+{% block title %}{{ notice.title }} - CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="breadcrumb" class="mb-3 no-print">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('student.index') }}" class="text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('student.list_notices') }}" class="text-decoration-none">Circulars</a></li>
+            {% if notice.category %}
+                <li class="breadcrumb-item"><a href="{{ url_for('student.list_notices', category=notice.category.slug) }}" class="text-decoration-none">{{ notice.category.name }}</a></li>
+            {% endif %}
+            <li class="breadcrumb-item active text-truncate" style="max-width: 320px;" aria-current="page">{{ notice.title }}</li>
+        </ol>
+    </nav>
+
+    <!-- Expired Warning Banner (if notice is expired) -->
+    {% if notice.is_expired %}
+        <div class="alert alert-warning border-warning shadow-sm rounded-3 mb-4 d-flex align-items-center" role="alert">
+            <i class="bi bi-exclamation-triangle-fill fs-3 me-3 text-warning"></i>
+            <div>
+                <strong class="d-block">Notice Expired</strong>
+                <span class="small">The active deadlines and submission periods for this notice concluded on {{ notice.expires_at.strftime('%b %d, %Y') if notice.expires_at else 'the scheduled date' }}. This circular is retained for institutional reference.</span>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Notice Header Card -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill fw-semibold">
+                    <i class="bi {{ notice.category.icon if notice.category else 'bi-tag' }} me-1"></i>
+                    {{ notice.category.name if notice.category else 'Notice' }}
+                </span>
+                <span class="badge {{ 'bg-danger' if notice.priority == 'urgent' else ('bg-warning text-dark' if notice.priority == 'high' else 'bg-secondary') }} px-3 py-2 rounded-pill fw-semibold">
+                    {{ notice.priority|upper }} PRIORITY
+                </span>
+            </div>
+            <div class="small text-muted d-flex align-items-center gap-3">
+                <span>
+                    <i class="bi bi-calendar-check text-primary me-1"></i> Published:
+                    <strong>{{ notice.published_at.strftime('%B %d, %Y') if notice.published_at else 'Recent' }}</strong>
+                </span>
+                {% if notice.updated_at and notice.published_at and notice.updated_at > notice.published_at %}
+                    <span>
+                        <i class="bi bi-arrow-repeat text-secondary me-1"></i> Updated:
+                        {{ notice.updated_at.strftime('%b %d, %Y') }}
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <h2 class="fw-bold text-dark mb-3">{{ notice.title }}</h2>
+
+        {% if notice.summary %}
+            <div class="p-3 bg-light rounded-3 border-start border-4 border-primary mb-2">
+                <p class="mb-0 fw-medium text-secondary">{{ notice.summary }}</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Main Content & Sidebar Grid -->
+    <div class="row g-4">
+        <!-- Main Column (Col 8) -->
+        <div class="col-lg-8">
+            <!-- Full Notice Instructions -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                <h5 class="fw-bold text-dark mb-3">
+                    <i class="bi bi-file-text-fill text-primary me-2"></i>Official Announcement &amp; Instructions
+                </h5>
+                <div class="text-secondary text-preline lh-lg">
+                    {{ notice.content }}
+                </div>
+            </div>
+
+            <!-- Academic Criteria 1: Eligibility -->
+            {% if notice.eligibility %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4 border-start border-4 border-primary">
+                    <h5 class="fw-bold text-primary mb-3">
+                        <i class="bi bi-mortarboard-fill me-2"></i>Eligibility Criteria &amp; Conditions
+                    </h5>
+                    <div class="text-secondary text-preline lh-lg bg-light p-3 rounded-3">
+                        {{ notice.eligibility }}
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Academic Criteria 2: Required Documents -->
+            {% if notice.required_documents %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4 border-start border-4 border-success">
+                    <h5 class="fw-bold text-success mb-3">
+                        <i class="bi bi-file-earmark-check-fill me-2"></i>Required Documents &amp; Certificates
+                    </h5>
+                    <div class="text-secondary text-preline lh-lg bg-light p-3 rounded-3">
+                        {{ notice.required_documents }}
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Academic Criteria 3: Submission Instructions -->
+            {% if notice.submission_instructions %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4 border-start border-4 border-info">
+                    <h5 class="fw-bold text-info mb-3">
+                        <i class="bi bi-send-check-fill me-2"></i>Submission Guidelines &amp; Counter Process
+                    </h5>
+                    <div class="text-secondary text-preline lh-lg bg-light p-3 rounded-3">
+                        {{ notice.submission_instructions }}
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Milestone Dates & Timeline -->
+            {% if deadlines %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold text-dark mb-0">
+                            <i class="bi bi-calendar2-range-fill text-warning me-2"></i>Target Dates &amp; Milestone Schedule
+                        </h5>
+                        <span class="badge bg-warning-subtle text-warning border px-2 py-1">
+                            {{ deadlines|length }} {{ 'Milestone' if deadlines|length == 1 else 'Milestones' }}
+                        </span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Milestone Name</th>
+                                    <th scope="col">Due Date</th>
+                                    <th scope="col">Status / Countdown</th>
+                                    <th scope="col">Counter / Instructions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dl in deadlines %}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold text-dark">{{ dl.milestone_name }}</div>
+                                        </td>
+                                        <td>
+                                            <span class="fw-semibold">{{ dl.due_date.strftime('%b %d, %Y') }}</span>
+                                            <div class="small text-muted">{{ dl.due_date.strftime('%I:%M %p') }}</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ dl.status_badge.badge_class }} small">
+                                                <i class="bi {{ dl.status_badge.icon }} me-1"></i>{{ dl.status_badge.label }}
+                                            </span>
+                                            <div class="small text-muted mt-1">{{ dl.formatted_due_date }}</div>
+                                        </td>
+                                        <td>
+                                            {% if dl.office %}
+                                                <div class="small fw-semibold">
+                                                    <a href="{{ url_for('student.view_office', office_id=dl.office.id) }}" class="text-primary text-decoration-none">
+                                                        <i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ dl.office.office_name }} ({{ dl.office.building_room }})
+                                                    </a>
+                                                </div>
+                                            {% endif %}
+                                            {% if dl.instructions %}
+                                                <div class="small text-muted mt-1">{{ dl.instructions }}</div>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Flowchart Workflows (if attached) -->
+            {% if notice.notice_flowcharts %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <h5 class="fw-bold text-dark mb-3">
+                        <i class="bi bi-diagram-3-fill text-primary me-2"></i>Procedural Workflow Diagrams
+                    </h5>
+                    <div class="list-group list-group-flush">
+                        {% for nf in notice.notice_flowcharts %}
+                            <div class="list-group-item px-0 py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                <div>
+                                    <h6 class="fw-bold mb-1 text-dark">{{ nf.flowchart.title }}</h6>
+                                    {% if nf.caption %}
+                                        <p class="text-muted small mb-1">{{ nf.caption }}</p>
+                                    {% endif %}
+                                    <div class="small text-secondary">
+                                        <span class="badge bg-light text-dark border me-1">{{ nf.flowchart.node_count }} Steps</span>
+                                        <span class="badge bg-light text-dark border me-1">{{ nf.flowchart.edge_count }} Transitions</span>
+                                        {% if nf.flowchart.has_decision_nodes %}
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border">Branching Logic</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <a href="{{ url_for('flowcharts.view_flowchart', flowchart_id=nf.flowchart.id) }}" class="btn btn-outline-primary btn-sm px-3 fw-medium shadow-sm">
+                                        <i class="bi bi-eye me-1"></i> Interactive View
+                                    </a>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{{ url_for('flowcharts.export_png', flowchart_id=nf.flowchart.id) }}" class="btn btn-outline-secondary" title="Download PNG Diagram">
+                                            <i class="bi bi-file-earmark-image"></i> PNG
+                                        </a>
+                                        <a href="{{ url_for('flowcharts.export_pdf', flowchart_id=nf.flowchart.id) }}" class="btn btn-outline-danger" title="Download PDF Diagram">
+                                            <i class="bi bi-file-earmark-pdf"></i> PDF
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Document Attachments (if attached) -->
+            {% if notice.notice_documents %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <h5 class="fw-bold text-dark mb-3">
+                        <i class="bi bi-paperclip text-secondary me-2"></i>Official Document Attachments
+                    </h5>
+                    <div class="list-group list-group-flush">
+                        {% for nd in notice.notice_documents %}
+                            <div class="list-group-item px-0 py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                <div class="d-flex align-items-center">
+                                    <div class="rounded-3 p-2 me-3 fs-4 {{ 'bg-danger-subtle text-danger' if nd.document.is_pdf else 'bg-primary-subtle text-primary' }}">
+                                        <i class="bi {{ 'bi-file-earmark-pdf-fill' if nd.document.is_pdf else 'bi-file-earmark-word-fill' }}"></i>
+                                    </div>
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <h6 class="fw-bold mb-0 text-dark">{{ nd.display_label or nd.document.original_name }}</h6>
+                                            <span class="badge {{ nd.document.label_badge_class }} small">{{ nd.document.label }}</span>
+                                        </div>
+                                        <small class="text-muted">
+                                            {{ nd.document.file_size_kb }} KB &bull; {{ 'PDF Document' if nd.document.is_pdf else 'Word Document (.docx)' }}
+                                            {% if nd.document.description %}&bull; {{ nd.document.description }}{% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <a href="{{ url_for('documents.download_document', document_id=nd.document.id) }}" class="btn btn-outline-primary btn-sm px-3 fw-medium shadow-sm">
+                                        <i class="bi bi-download me-1"></i> Download
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar Column (Col 4) -->
+        <div class="col-lg-4">
+            <!-- Responsible Office Information -->
+            {% if notice.office %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold text-dark mb-0">
+                            <i class="bi bi-building text-primary me-2"></i>Responsible Office
+                        </h5>
+                        {% if notice.office.is_sample %}
+                            <span class="badge bg-warning-subtle text-warning border px-2 py-1">SAMPLE</span>
+                        {% endif %}
+                    </div>
+
+                    <h6 class="fw-bold text-dark mb-1">{{ notice.office.office_name }}</h6>
+                    <div class="text-primary small fw-semibold mb-3">{{ notice.office.department or 'Campus Administration' }}</div>
+
+                    <ul class="list-unstyled small text-secondary mb-3">
+                        <li class="mb-2">
+                            <i class="bi bi-geo-alt-fill text-danger me-2"></i>
+                            <strong>Location:</strong> {{ notice.office.building_room }}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-person-badge-fill text-primary me-2"></i>
+                            <strong>In-Charge:</strong> {{ notice.office.contact_person }}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-envelope-fill text-info me-2"></i>
+                            <strong>Email:</strong> <a href="mailto:{{ notice.office.contact_email }}" class="text-decoration-none">{{ notice.office.contact_email }}</a>
+                        </li>
+                        {% if notice.office.contact_phone %}
+                            <li class="mb-2">
+                                <i class="bi bi-telephone-fill text-success me-2"></i>
+                                <strong>Phone:</strong> {{ notice.office.contact_phone }}
+                            </li>
+                        {% endif %}
+                        <li class="pt-2 border-top">
+                            <i class="bi bi-clock-fill text-warning me-2"></i>
+                            <strong>Hours:</strong> {{ notice.office.office_hours }}
+                        </li>
+                    </ul>
+
+                    {% if notice.office.visit_instructions %}
+                        <div class="p-2 bg-light rounded small text-muted mb-3 border-start border-2 border-primary">
+                            <strong>Submission Note:</strong> {{ notice.office.visit_instructions }}
+                        </div>
+                    {% endif %}
+
+                    <a href="{{ url_for('student.view_office', office_id=notice.office.id) }}" class="btn btn-outline-primary btn-sm w-100 fw-medium">
+                        <i class="bi bi-info-circle me-1"></i> Full Office Profile &amp; Counters
+                    </a>
+                </div>
+            {% endif %}
+
+            <!-- Quick Actions Card -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4 no-print">
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-tools text-secondary me-2"></i>Actions</h5>
+                <div class="d-grid gap-2">
+                    <button type="button" onclick="window.print()" class="btn btn-outline-primary btn-sm py-2">
+                        <i class="bi bi-printer me-2"></i>Print / Save as PDF
+                    </button>
+                    <button type="button" onclick="copyNoticeLink()" class="btn btn-outline-secondary btn-sm py-2" id="btnShare">
+                        <i class="bi bi-share me-2"></i>Copy Notice Link
+                    </button>
+                    <a href="{{ url_for('student.list_notices') }}" class="btn btn-light btn-sm py-2 text-primary border">
+                        <i class="bi bi-arrow-left me-2"></i>Back to All Circulars
+                    </a>
+                </div>
+            </div>
+
+            <!-- Related Notices in Same Category -->
+            {% if related_notices %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4 no-print">
+                    <h5 class="fw-bold text-dark mb-3">
+                        <i class="bi bi-collection-fill text-primary me-2"></i>Related Circulars
+                    </h5>
+                    <div class="list-group list-group-flush">
+                        {% for rn in related_notices %}
+                            <div class="list-group-item px-0 py-2 border-bottom">
+                                <a href="{{ url_for('student.view_notice', notice_id=rn.id) }}" class="fw-bold text-dark text-decoration-none small hover-primary d-block mb-1">
+                                    {{ rn.title }}
+                                </a>
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar3 me-1"></i> {{ rn.published_at.strftime('%b %d, %Y') if rn.published_at else 'Recent' }}
+                                </small>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function copyNoticeLink() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+        const btn = document.getElementById('btnShare');
+        if (btn) {
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check-lg text-success me-2"></i>Link Copied!';
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+            }, 2500);
+        }
+    }).catch(err => {
+        console.error('Failed to copy: ', err);
+    });
+}
+</script>
+{% endblock %}

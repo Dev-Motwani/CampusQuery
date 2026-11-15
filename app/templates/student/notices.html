@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Circulars & Notices - CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb & Header -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('student.index') }}" class="text-decoration-none">Home</a></li>
+            {% if selected_category %}
+                <li class="breadcrumb-item"><a href="{{ url_for('student.list_notices') }}" class="text-decoration-none">Notices</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ selected_category.name }}</li>
+            {% else %}
+                <li class="breadcrumb-item active" aria-current="page">Circulars &amp; Notices</li>
+            {% endif %}
+        </ol>
+    </nav>
+
+    <div class="row align-items-center mb-4">
+        <div class="col-md-8">
+            <h2 class="fw-bold mb-1 text-dark">
+                {% if selected_category %}
+                    <i class="bi {{ selected_category.icon or 'bi-tag' }} text-primary me-2"></i>{{ selected_category.name }} Circulars
+                {% else %}
+                    <i class="bi bi-newspaper text-primary me-2"></i>Official Circulars &amp; Notices
+                {% endif %}
+            </h2>
+            <p class="text-muted small mb-0">
+                {% if selected_category %}
+                    {{ selected_category.description or 'All published notices for this department.' }}
+                {% else %}
+                    Browse and search published college announcements, deadlines, academic criteria, and instructions.
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-md-4 text-md-end mt-2 mt-md-0">
+            <span class="badge bg-primary px-3 py-2 rounded-pill fs-6">
+                {{ pagination.total }} {{ 'Notice' if pagination.total == 1 else 'Notices' }} Found
+            </span>
+        </div>
+    </div>
+
+    <!-- Search & Filter Controls -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+        <form method="GET" action="{{ url_for('student.list_notices') }}" id="filterForm">
+            <div class="row g-3">
+                <!-- Search Input -->
+                <div class="col-lg-4 col-md-6">
+                    <label class="form-label small fw-semibold text-muted mb-1" for="qInput">Keyword Search</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" class="form-control border-start-0 ps-0" id="qInput" name="q" value="{{ q or '' }}" placeholder="Search title, eligibility, docs..." maxlength="100">
+                    </div>
+                </div>
+
+                <!-- Category Filter -->
+                <div class="col-lg-3 col-md-6">
+                    <label class="form-label small fw-semibold text-muted mb-1" for="categorySelect">Department / Category</label>
+                    <select class="form-select" id="categorySelect" name="category">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat.slug }}" {% if selected_category and selected_category.slug == cat.slug %}selected{% endif %}>
+                                {{ cat.name }} ({{ cat.published_notice_count }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Priority Filter -->
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label small fw-semibold text-muted mb-1" for="prioritySelect">Priority</label>
+                    <select class="form-select" id="prioritySelect" name="priority">
+                        <option value="">All Priorities</option>
+                        <option value="urgent" {% if priority == 'urgent' %}selected{% endif %}>Urgent</option>
+                        <option value="high" {% if priority == 'high' %}selected{% endif %}>High</option>
+                        <option value="medium" {% if priority == 'medium' %}selected{% endif %}>Medium</option>
+                        <option value="low" {% if priority == 'low' %}selected{% endif %}>Low</option>
+                    </select>
+                </div>
+
+                <!-- Status / Date Filter -->
+                <div class="col-lg-3 col-md-4">
+                    <label class="form-label small fw-semibold text-muted mb-1" for="statusSelect">Date &amp; Status</label>
+                    <select class="form-select" id="statusSelect" name="status">
+                        <option value="">All Statuses</option>
+                        <option value="upcoming_deadlines" {% if status_filter == 'upcoming_deadlines' %}selected{% endif %}>Upcoming Deadlines</option>
+                        <option value="recent" {% if status_filter == 'recent' %}selected{% endif %}>Published This Week</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active (Not Expired)</option>
+                    </select>
+                </div>
+
+                <!-- Sort & Actions Row -->
+                <div class="col-12 d-flex flex-wrap justify-content-between align-items-center pt-2 border-top">
+                    <div class="d-flex align-items-center gap-2 mb-2 mb-md-0">
+                        <label class="small fw-semibold text-muted mb-0 me-1" for="sortSelect">Sort by:</label>
+                        <select class="form-select form-select-sm w-auto" id="sortSelect" name="sort" onchange="document.getElementById('filterForm').submit();">
+                            <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest Published</option>
+                            <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>Oldest Published</option>
+                            <option value="urgent_first" {% if sort_by == 'urgent_first' %}selected{% endif %}>Urgent First</option>
+                            <option value="title" {% if sort_by == 'title' %}selected{% endif %}>Title (A-Z)</option>
+                        </select>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        {% if q or (selected_category) or priority or status_filter or (sort_by and sort_by != 'newest') %}
+                            <a href="{{ url_for('student.list_notices') }}" class="btn btn-outline-secondary btn-sm px-3">
+                                <i class="bi bi-x-circle me-1"></i> Clear Filters
+                            </a>
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary btn-sm px-4">
+                            <i class="bi bi-funnel me-1"></i> Apply Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <!-- Active Filter Chips -->
+        {% if q or selected_category or priority or status_filter %}
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-3 pt-2 border-top">
+                <span class="small text-muted fw-semibold me-1">Active Filters:</span>
+                {% if q %}
+                    <span class="badge bg-light text-dark border px-2 py-1">
+                        Keyword: "<strong>{{ q }}</strong>"
+                        <a href="{{ url_for('student.list_notices', category=selected_category.slug if selected_category else '', priority=priority, status=status_filter, sort=sort_by) }}" class="text-danger ms-1 text-decoration-none">&times;</a>
+                    </span>
+                {% endif %}
+                {% if selected_category %}
+                    <span class="badge bg-light text-primary border px-2 py-1">
+                        Category: <strong>{{ selected_category.name }}</strong>
+                        <a href="{{ url_for('student.list_notices', q=q, priority=priority, status=status_filter, sort=sort_by) }}" class="text-danger ms-1 text-decoration-none">&times;</a>
+                    </span>
+                {% endif %}
+                {% if priority %}
+                    <span class="badge bg-light text-danger border px-2 py-1">
+                        Priority: <strong>{{ priority|upper }}</strong>
+                        <a href="{{ url_for('student.list_notices', q=q, category=selected_category.slug if selected_category else '', status=status_filter, sort=sort_by) }}" class="text-danger ms-1 text-decoration-none">&times;</a>
+                    </span>
+                {% endif %}
+                {% if status_filter %}
+                    <span class="badge bg-light text-warning border px-2 py-1">
+                        Filter: <strong>{{ status_filter.replace('_', ' ')|title }}</strong>
+                        <a href="{{ url_for('student.list_notices', q=q, category=selected_category.slug if selected_category else '', priority=priority, sort=sort_by) }}" class="text-danger ms-1 text-decoration-none">&times;</a>
+                    </span>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Notices Grid -->
+    {% if notices %}
+        <div class="row g-4 mb-4">
+            {% for notice in notices %}
+                <div class="col-lg-4 col-md-6">
+                    <div class="card h-100 border-0 shadow-sm rounded-4 p-3 bg-white notice-card d-flex flex-column">
+                        <!-- Top Meta: Category & Priority -->
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-light text-primary border rounded-pill">
+                                <i class="bi {{ notice.category.icon if notice.category else 'bi-tag' }} me-1"></i>
+                                {{ notice.category.name if notice.category else 'Notice' }}
+                            </span>
+                            <span class="badge {{ 'bg-danger' if notice.priority == 'urgent' else ('bg-warning text-dark' if notice.priority == 'high' else 'bg-secondary') }} px-2 py-1">
+                                {{ notice.priority|upper }}
+                            </span>
+                        </div>
+
+                        <!-- Title -->
+                        <h5 class="fw-bold mb-2">
+                            <a href="{{ url_for('student.view_notice', notice_id=notice.id) }}" class="text-dark text-decoration-none hover-primary">
+                                {{ notice.title }}
+                            </a>
+                        </h5>
+
+                        <!-- Summary -->
+                        <p class="text-muted small mb-3 flex-grow-1 line-clamp-3">
+                            {{ notice.summary or notice.content[:140] }}...
+                        </p>
+
+                        <!-- Academic Feature Pills -->
+                        <div class="d-flex flex-wrap gap-1 mb-3">
+                            {% if notice.eligibility %}
+                                <span class="badge bg-light text-secondary border small" title="Eligibility specified">
+                                    <i class="bi bi-mortarboard text-primary me-1"></i>Eligibility
+                                </span>
+                            {% endif %}
+                            {% if notice.required_documents %}
+                                <span class="badge bg-light text-secondary border small" title="Required documents listed">
+                                    <i class="bi bi-file-earmark-check text-success me-1"></i>Documents
+                                </span>
+                            {% endif %}
+                            {% if notice.deadlines %}
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle small">
+                                    <i class="bi bi-clock-history me-1"></i>{{ notice.deadlines|length }} {{ 'Milestone' if notice.deadlines|length == 1 else 'Milestones' }}
+                                </span>
+                            {% endif %}
+                            {% if notice.notice_documents %}
+                                <span class="badge bg-info-subtle text-info border border-info-subtle small">
+                                    <i class="bi bi-paperclip me-1"></i>{{ notice.notice_documents|length }} {{ 'File' if notice.notice_documents|length == 1 else 'Files' }}
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Footer: Date & View Button -->
+                        <div class="pt-2 border-top d-flex justify-content-between align-items-center mt-auto">
+                            <small class="text-muted">
+                                <i class="bi bi-calendar3 me-1"></i>
+                                {{ notice.published_at.strftime('%b %d, %Y') if notice.published_at else 'Published' }}
+                            </small>
+                            <a href="{{ url_for('student.view_notice', notice_id=notice.id) }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                                View Details <i class="bi bi-arrow-right ms-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination Controls -->
+        {% if pagination.pages > 1 %}
+            <nav aria-label="Notices pagination" class="d-flex justify-content-center mt-4">
+                <ul class="pagination shadow-sm">
+                    <!-- Previous Page -->
+                    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('student.list_notices', page=pagination.prev_num, q=q, category=selected_category.slug if selected_category else '', priority=priority, status=status_filter, sort=sort_by) }}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo; Previous</span>
+                        </a>
+                    </li>
+
+                    <!-- Page Numbers -->
+                    {% for p in pagination.iter_pages %}
+                        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('student.list_notices', page=p, q=q, category=selected_category.slug if selected_category else '', priority=priority, status=status_filter, sort=sort_by) }}">
+                                {{ p }}
+                            </a>
+                        </li>
+                    {% endfor %}
+
+                    <!-- Next Page -->
+                    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('student.list_notices', page=pagination.next_num, q=q, category=selected_category.slug if selected_category else '', priority=priority, status=status_filter, sort=sort_by) }}" aria-label="Next">
+                            <span aria-hidden="true">Next &raquo;</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            <div class="text-center text-muted small mt-2">
+                Showing Page {{ pagination.page }} of {{ pagination.pages }} ({{ pagination.total }} circulars total)
+            </div>
+        {% endif %}
+
+    {% else %}
+        <!-- Empty State When No Results -->
+        <div class="card border-0 shadow-sm rounded-4 p-5 text-center bg-white my-4">
+            <div class="mb-3">
+                <i class="bi bi-folder-x text-muted display-3 opacity-50"></i>
+            </div>
+            <h4 class="fw-bold text-dark mb-2">No Official Circulars Found</h4>
+            <p class="text-muted col-md-6 mx-auto mb-4">
+                {% if q %}
+                    No published circulars matched your keyword <strong>"{{ q }}"</strong>. Please try different keywords or reset your filters.
+                {% else %}
+                    No published circulars currently match the selected category or filter options.
+                {% endif %}
+            </p>
+            <div>
+                <a href="{{ url_for('student.list_notices') }}" class="btn btn-primary px-4 rounded-pill">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Reset All Filters
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

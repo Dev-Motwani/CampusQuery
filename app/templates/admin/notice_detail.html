@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}{{ notice.title }} - Admin Preview | CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('admin.list_notices') }}">Notices</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ notice.title|truncate(40) }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header & Action Toolbar -->
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <span class="badge bg-light text-dark border">
+                    <i class="bi {{ notice.category.icon if notice.category else 'bi-bookmark' }} me-1"></i>
+                    {{ notice.category.name if notice.category else 'General' }}
+                </span>
+                <span class="badge {{ 'bg-danger' if notice.priority == 'urgent' else ('bg-warning text-dark' if notice.priority == 'high' else 'bg-secondary') }}">
+                    Priority: {{ notice.priority|upper }}
+                </span>
+                <span class="badge {{ 'bg-success' if notice.status == 'published' else ('bg-warning text-dark' if notice.status == 'draft' else 'bg-secondary') }} px-3 py-1">
+                    Status: {{ notice.status|capitalize }}
+                </span>
+                {% if notice.is_expired %}
+                    <span class="badge bg-danger px-3 py-1">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>EXPIRED
+                    </span>
+                {% endif %}
+            </div>
+            <h2 class="fw-bold mb-1">{{ notice.title }}</h2>
+            <div class="text-muted small">
+                <span><i class="bi bi-clock me-1"></i>Created {{ notice.created_at.strftime('%d-%b-%Y %I:%M %p') }}</span>
+                {% if notice.published_at %}
+                    <span class="ms-3"><i class="bi bi-check2-circle text-success me-1"></i>Published {{ notice.published_at.strftime('%d-%b-%Y %I:%M %p') }}</span>
+                {% endif %}
+                <span class="ms-3"><i class="bi bi-arrow-repeat me-1"></i>Updated {{ notice.updated_at.strftime('%d-%b-%Y %I:%M %p') }}</span>
+                <span class="ms-3"><i class="bi bi-link-45deg me-1"></i>Slug: <code>{{ notice.slug }}</code></span>
+            </div>
+        </div>
+
+        <!-- Action Buttons (Requirements 4 & 8) -->
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('admin.edit_notice_view', notice_id=notice.id) }}" class="btn btn-outline-primary btn-sm px-3">
+                <i class="bi bi-pencil me-1"></i> Edit Notice
+            </a>
+
+            {% if notice.status == 'draft' %}
+                <form method="POST" action="{{ url_for('admin.publish_notice', notice_id=notice.id) }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-success btn-sm px-3">
+                        <i class="bi bi-send-check me-1"></i> Publish Now
+                    </button>
+                </form>
+            {% elif notice.status == 'published' %}
+                <form method="POST" action="{{ url_for('admin.draft_notice', notice_id=notice.id) }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-warning btn-sm px-3">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Move to Draft
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('admin.archive_notice', notice_id=notice.id) }}" class="d-inline" onsubmit="return confirm('Archive this notice? It will be removed from current student view.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-secondary btn-sm px-3">
+                        <i class="bi bi-archive me-1"></i> Archive
+                    </button>
+                </form>
+            {% elif notice.status == 'archived' %}
+                <form method="POST" action="{{ url_for('admin.publish_notice', notice_id=notice.id) }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-success btn-sm px-3">
+                        <i class="bi bi-arrow-up-circle me-1"></i> Restore & Publish
+                    </button>
+                </form>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('admin.delete_notice', notice_id=notice.id) }}" class="d-inline" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete this notice and all attached deadline milestones? This cannot be undone.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-danger btn-sm px-3">
+                    <i class="bi bi-trash me-1"></i> Delete
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Content Row -->
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <!-- Summary Lead -->
+            {% if notice.summary %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4 border-start border-4 border-primary">
+                    <h6 class="fw-bold mb-1 text-primary"><i class="bi bi-chat-left-quote me-1"></i>Short Description / Summary</h6>
+                    <p class="mb-0 text-secondary">{{ notice.summary }}</p>
+                </div>
+            {% endif %}
+
+            <!-- Notice Full Instructions / Circular Body -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-card-text text-primary me-2"></i>Full Instructions & Circular Content</h5>
+                <div class="text-body lh-lg" style="white-space: pre-wrap; font-size: 1.05rem;">{{ notice.content }}</div>
+            </div>
+
+            <!-- Academic Conditions & Requirements (Requirement 3) -->
+            <div class="row g-3 mb-4">
+                {% if notice.eligibility %}
+                    <div class="col-md-6 col-12">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-info">
+                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-mortarboard text-info me-1"></i>Student Eligibility</h6>
+                            <p class="small text-muted mb-0" style="white-space: pre-wrap;">{{ notice.eligibility }}</p>
+                        </div>
+                    </div>
+                {% endif %}
+
+                {% if notice.required_documents %}
+                    <div class="col-md-6 col-12">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-warning">
+                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-files text-warning me-1"></i>Required Documents</h6>
+                            <p class="small text-muted mb-0" style="white-space: pre-wrap;">{{ notice.required_documents }}</p>
+                        </div>
+                    </div>
+                {% endif %}
+
+                {% if notice.submission_instructions %}
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-4 border-secondary">
+                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-geo-alt text-secondary me-1"></i>Submission Instructions</h6>
+                            <p class="small text-muted mb-0" style="white-space: pre-wrap;">{{ notice.submission_instructions }}</p>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Scheduled Deadlines & Multi-Milestone Progression (Requirements 6 & 7) -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                <h5 class="fw-bold mb-3"><i class="bi bi-calendar-event text-primary me-2"></i>Scheduled Deadlines & Milestones</h5>
+
+                {% if notice.deadlines %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Milestone Name</th>
+                                    <th>Target Due Date</th>
+                                    <th>Milestone Status</th>
+                                    <th>Responsible Desk / Office</th>
+                                    <th>Instructions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for d in notice.deadlines %}
+                                    <tr>
+                                        <td>
+                                            <strong class="d-block">{{ d.milestone_name }}</strong>
+                                        </td>
+                                        <td>
+                                            <div>{{ d.due_date.strftime('%d-%b-%Y') }}</div>
+                                            <small class="text-muted">{{ d.due_date.strftime('%I:%M %p') }}</small>
+                                            {% if d.is_overdue %}
+                                                <span class="badge bg-danger-subtle text-danger ms-1">Overdue</span>
+                                            {% else %}
+                                                <span class="badge bg-info-subtle text-info ms-1">{{ d.days_remaining }}d left</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ 'bg-primary' if d.status == 'upcoming' else ('bg-success' if d.status == 'ongoing' else ('bg-warning text-dark' if d.status == 'extended' else 'bg-secondary')) }}">
+                                                {{ d.status|capitalize }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if d.office %}
+                                                <span class="d-block fw-semibold small">{{ d.office.office_name }}</span>
+                                                <small class="text-muted">{{ d.office.building_room }}</small>
+                                            {% else %}
+                                                <span class="text-muted small">Online / Central</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="small text-muted">
+                                            {{ d.instructions or '-' }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted small mb-0">No deadline milestones attached to this notice.</p>
+                {% endif %}
+            </div>
+
+            <!-- Official Document Attachments -->
+            {% if notice.notice_documents %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0">
+                            <i class="bi bi-paperclip text-primary me-2"></i>Official Document Attachments
+                        </h5>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                            {{ notice.notice_documents|length }} Attached
+                        </span>
+                    </div>
+                    <div class="list-group list-group-flush border rounded-3 overflow-hidden">
+                        {% for nd in notice.notice_documents %}
+                            <div class="list-group-item p-3 d-flex flex-wrap justify-content-between align-items-center gap-2 bg-light">
+                                <div class="d-flex align-items-center">
+                                    <div class="rounded-3 p-2 me-3 fs-4 {{ 'bg-danger-subtle text-danger' if nd.document.is_pdf else 'bg-primary-subtle text-primary' }}">
+                                        <i class="bi {{ 'bi-file-earmark-pdf-fill' if nd.document.is_pdf else 'bi-file-earmark-word-fill' }}"></i>
+                                    </div>
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <h6 class="fw-bold mb-0 text-dark">{{ nd.display_label or nd.document.original_name }}</h6>
+                                            <span class="badge {{ nd.document.label_badge_class }} small">{{ nd.document.label }}</span>
+                                            <span class="badge {{ nd.document.extraction_badge.badge_class }} small">{{ nd.document.extraction_badge.label }}</span>
+                                        </div>
+                                        <small class="text-muted">
+                                            {{ nd.document.file_size_kb }} KB &bull; {{ 'PDF Document' if nd.document.is_pdf else 'Word Document (.docx)' }}
+                                            {% if nd.document.description %}&bull; {{ nd.document.description }}{% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <a href="{{ url_for('documents.download_document', document_id=nd.document.id) }}" class="btn btn-outline-primary btn-sm px-3 fw-medium">
+                                        <i class="bi bi-download me-1"></i> Download
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar Info -->
+        <div class="col-lg-4">
+            <!-- Notice Governance & Office Information -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                <h6 class="fw-bold mb-3"><i class="bi bi-info-circle text-primary me-2"></i>Notice Governance</h6>
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Notice ID:</span>
+                    <strong>#{{ notice.id }}</strong>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Category:</span>
+                    <strong>{{ notice.category.name if notice.category else 'General' }}</strong>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Publication Status:</span>
+                    <span class="badge {{ 'bg-success' if notice.status == 'published' else ('bg-warning text-dark' if notice.status == 'draft' else 'bg-secondary') }}">
+                        {{ notice.status|capitalize }}
+                    </span>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Priority Level:</span>
+                    <strong>{{ notice.priority|capitalize }}</strong>
+                </div>
+                {% if notice.office %}
+                    <div class="mb-2">
+                        <span class="text-muted small d-block">Issuing Department:</span>
+                        <strong>{{ notice.office.office_name }}</strong>
+                        <div class="small text-muted">{{ notice.office.building_room }}</div>
+                        <div class="small text-muted">{{ notice.office.contact_email }}</div>
+                    </div>
+                {% endif %}
+                {% if notice.expires_at %}
+                    <div class="mb-2">
+                        <span class="text-muted small d-block">Expires On:</span>
+                        <strong>{{ notice.expires_at.strftime('%d-%b-%Y %I:%M %p') }}</strong>
+                        {% if notice.is_expired %}
+                            <span class="badge bg-danger ms-1">Past Expiry Date</span>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                <div class="mt-3 pt-3 border-top">
+                    <span class="text-muted small d-block">Created By:</span>
+                    <strong>{{ notice.creator.full_name if notice.creator else 'Administrator' }}</strong>
+                </div>
+                <div class="mt-2 text-muted small">
+                    <div><strong>Created:</strong> {{ notice.created_at.strftime('%d-%b-%Y %I:%M %p') }}</div>
+                    <div><strong>Updated:</strong> {{ notice.updated_at.strftime('%d-%b-%Y %I:%M %p') }}</div>
+                </div>
+            </div>
+
+            <!-- Attached Assets Preview -->
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                <h6 class="fw-bold mb-3"><i class="bi bi-paperclip text-primary me-2"></i>Attached Assets</h6>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="small text-muted"><i class="bi bi-file-earmark-pdf me-1"></i>Documents:</span>
+                    <span class="badge bg-light text-dark border">{{ notice.notice_documents|length }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="small text-muted"><i class="bi bi-diagram-3 me-1"></i>Visual Flowcharts:</span>
+                    <span class="badge bg-light text-dark border">{{ notice.notice_flowcharts|length }}</span>
+                </div>
+                <div class="mt-3 pt-3 border-top">
+                    <a href="{{ url_for('admin.edit_notice_view', notice_id=notice.id) }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="bi bi-paperclip me-1"></i> Attach / Manage Documents
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Categories - Admin Panel | CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb & Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Categories</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold mb-0">Notice Categories</h2>
+            <p class="text-muted small mb-0">Organize notices into academic, administrative, and departmental sections.</p>
+        </div>
+        <div>
+            <button class="btn btn-primary px-3 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#createCategoryModal">
+                <i class="bi bi-plus-circle me-1"></i> Add Category
+            </button>
+        </div>
+    </div>
+
+    <!-- Category Table Card -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+        {% if categories %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Icon & Category Name</th>
+                            <th>Slug</th>
+                            <th>Description</th>
+                            <th>Notices</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cat in categories %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle bg-primary-subtle text-primary p-2 d-inline-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                            <i class="bi {{ cat.icon }} fs-6"></i>
+                                        </div>
+                                        <div>
+                                            <strong class="d-block text-dark">{{ cat.name }}</strong>
+                                            <code class="small text-muted">{{ cat.icon }}</code>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><code>{{ cat.slug }}</code></td>
+                                <td class="text-muted small" style="max-width: 250px;">
+                                    {{ cat.description or '-' }}
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border rounded-pill px-3 py-1">
+                                        {{ cat.notices|length }} circular{{ 's' if cat.notices|length != 1 else '' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if cat.is_active %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <!-- Edit Modal Trigger -->
+                                        <button type="button" class="btn btn-outline-primary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editModal{{ cat.id }}"
+                                                title="Edit Category">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+
+                                        <!-- Toggle Active -->
+                                        <form method="POST" action="{{ url_for('admin.toggle_category_active', category_id=cat.id) }}" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-outline-secondary" title="{{ 'Deactivate' if cat.is_active else 'Activate' }}">
+                                                <i class="bi {{ 'bi-eye-slash' if cat.is_active else 'bi-eye' }}"></i>
+                                            </button>
+                                        </form>
+
+                                        <!-- Delete (Disabled if notices exist) -->
+                                        {% if cat.notices|length == 0 %}
+                                            <form method="POST" action="{{ url_for('admin.delete_category', category_id=cat.id) }}" class="d-inline" onsubmit="return confirm('Delete category {{ cat.name }}?');">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline-danger" title="Delete Category">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <button type="button" class="btn btn-outline-secondary disabled" title="Cannot delete: category has {{ cat.notices|length }} notice(s)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- Edit Modal for Category {{ cat.id }} -->
+                            <div class="modal fade" id="editModal{{ cat.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ cat.id }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content rounded-4 border-0 shadow">
+                                        <form method="POST" action="{{ url_for('admin.edit_category', category_id=cat.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <div class="modal-header border-0 pb-0">
+                                                <h5 class="modal-title fw-bold" id="editModalLabel{{ cat.id }}">Edit Category</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label class="form-label small fw-semibold">Category Name</label>
+                                                    <input type="text" name="name" class="form-control" value="{{ cat.name }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label small fw-semibold">Bootstrap Icon Class</label>
+                                                    <input type="text" name="icon" class="form-control" value="{{ cat.icon }}" placeholder="bi-bookmark">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label small fw-semibold">Description</label>
+                                                    <textarea name="description" class="form-control" rows="2">{{ cat.description or '' }}</textarea>
+                                                </div>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" name="is_active" value="1" id="activeSwitch{{ cat.id }}" {{ 'checked' if cat.is_active else '' }}>
+                                                    <label class="form-check-label small" for="activeSwitch{{ cat.id }}">Active for new notices</label>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer border-0 pt-0">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-sm btn-primary">Save Changes</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-tags display-4 d-block mb-2"></i>
+                <p>No categories found.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Create Category Modal -->
+<div class="modal fade" id="createCategoryModal" tabindex="-1" aria-labelledby="createCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <form method="POST" action="{{ url_for('admin.create_category') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="createCategoryModalLabel">Add New Category</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Category Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" placeholder="e.g. Placement & Internships" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Bootstrap Icon Class</label>
+                        <input type="text" name="icon" class="form-control" placeholder="bi-briefcase" value="bi-bookmark">
+                        <div class="form-text small">e.g. <code>bi-briefcase</code>, <code>bi-mortarboard</code>, <code>bi-cash-coin</code></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Description</label>
+                        <textarea name="description" class="form-control" rows="2" placeholder="Brief summary of notices under this category..."></textarea>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="is_active" value="1" id="newActiveSwitch" checked>
+                        <label class="form-check-label small" for="newActiveSwitch">Active for new notices</label>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-primary">Create Category</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,619 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit Flowchart' if mode == 'edit' else 'New Flowchart Builder' }} - Admin Panel | CampusQuery{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/drawflow.min.css') }}">
+
+<div class="container-fluid px-4 py-4">
+    <!-- Breadcrumb & Top Bar -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('flowcharts.admin_flowcharts') }}">Flowcharts</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ 'Edit Diagram' if mode == 'edit' else 'Create Diagram' }}</li>
+                </ol>
+            </nav>
+            <h3 class="fw-bold mb-0">
+                <i class="bi bi-diagram-3-fill text-primary me-2"></i>{{ 'Edit Procedural Flowchart' if mode == 'edit' else 'Procedural Flowchart Builder' }}
+            </h3>
+            <p class="text-muted small mb-0">Construct academic workflows via numbered step generator or interactive drag-and-drop node canvas.</p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('flowcharts.admin_flowcharts') }}" class="btn btn-outline-secondary btn-sm px-3">
+                <i class="bi bi-arrow-left me-1"></i> Back to List
+            </a>
+            {% if mode == 'edit' %}
+                <a href="{{ url_for('flowcharts.export_png', flowchart_id=flowchart.id) }}" class="btn btn-outline-primary btn-sm px-3">
+                    <i class="bi bi-file-earmark-image me-1"></i> PNG
+                </a>
+                <a href="{{ url_for('flowcharts.export_pdf', flowchart_id=flowchart.id) }}" class="btn btn-outline-danger btn-sm px-3">
+                    <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                </a>
+            {% endif %}
+            <button type="button" class="btn btn-success btn-sm px-3 fw-semibold shadow-sm" id="btnSaveFlowchart">
+                <i class="bi bi-save-fill me-1"></i> {{ 'Save Changes' if mode == 'edit' else 'Publish Flowchart' }}
+            </button>
+        </div>
+    </div>
+
+    <!-- Alert / Validation Banner -->
+    <div id="editorAlertBox" class="d-none alert alert-dismissible fade show" role="alert">
+        <span id="editorAlertMsg"></span>
+        <button type="button" class="btn-close" onclick="document.getElementById('editorAlertBox').classList.add('d-none');"></button>
+    </div>
+
+    <!-- Two-Column Layout: Left (Step Builder) & Right (Visual Canvas) -->
+    <div class="row g-3">
+        <!-- Col 4: Step Builder & Metadata Sidebar -->
+        <div class="col-lg-4 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
+                <h6 class="fw-bold text-dark mb-3">
+                    <i class="bi bi-info-circle-fill text-primary me-2"></i>Flowchart Metadata
+                </h6>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Diagram Title <span class="text-danger">*</span></label>
+                    <input type="text" id="fcTitle" class="form-control form-control-sm" placeholder="e.g., Hall Ticket Clearance Procedure" value="{{ flowchart.title if flowchart else '' }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Summary / Description</label>
+                    <textarea id="fcDescription" class="form-control form-control-sm" rows="2" placeholder="Brief explanation of procedure...">{{ flowchart.description if flowchart else '' }}</textarea>
+                </div>
+                {% if mode == 'create' %}
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Directly Attach to Notice (Optional)</label>
+                        <select id="fcNoticeId" class="form-select form-select-sm">
+                            <option value="">-- Do Not Attach Yet --</option>
+                            {% for n in notices %}
+                                <option value="{{ n.id }}" {{ 'selected' if target_notice and target_notice.id == n.id else '' }}>
+                                    {{ n.title[:45] }} ({{ n.status|capitalize }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Step Builder Panel (Requirement 1, 2, 3) -->
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="bi bi-list-ol text-warning me-2"></i>Numbered Process Steps
+                    </h6>
+                    <span class="badge bg-light text-dark border" id="stepCountBadge">0 Steps</span>
+                </div>
+                <p class="text-muted small mb-3" style="font-size: 0.78rem;">
+                    Configure linear process steps or branching Yes/No decision questions, then click generate.
+                </p>
+
+                <!-- Steps Container -->
+                <div id="stepsContainer" class="d-flex flex-column gap-2 mb-3" style="max-height: 380px; overflow-y: auto;">
+                    <!-- Dynamically populated steps -->
+                </div>
+
+                <!-- Add Step Buttons -->
+                <div class="d-flex gap-2 mb-3">
+                    <button type="button" class="btn btn-outline-primary btn-sm flex-fill" id="btnAddProcessStep">
+                        <i class="bi bi-plus-circle me-1"></i> Add Step
+                    </button>
+                    <button type="button" class="btn btn-outline-warning btn-sm flex-fill text-dark" id="btnAddDecisionStep">
+                        <i class="bi bi-signpost-split me-1"></i> Add Decision
+                    </button>
+                </div>
+
+                <!-- Generate from Steps Button (Requirement 3) -->
+                <button type="button" class="btn btn-primary btn-sm w-100 fw-semibold" id="btnGenerateFromSteps">
+                    <i class="bi bi-magic me-1"></i> Generate Diagram from Steps
+                </button>
+            </div>
+        </div>
+
+        <!-- Col 8: Interactive Drawflow Canvas (Requirement 4, 5) -->
+        <div class="col-lg-8 col-xl-9">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-3 position-relative">
+                <!-- Canvas Toolbar -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 pb-2 border-bottom">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="small fw-bold text-secondary text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">
+                            Add Nodes:
+                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-success py-1 px-2" onclick="addNodeToCanvas('start', 'Start: Procedure')">
+                            <i class="bi bi-play-circle-fill me-1"></i> Start
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2" onclick="addNodeToCanvas('process', 'Action / Verification')">
+                            <i class="bi bi-gear-fill me-1"></i> Step
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-warning text-dark py-1 px-2" onclick="addNodeToCanvas('decision', 'Condition Met?')">
+                            <i class="bi bi-signpost-2-fill me-1"></i> Decision
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2" onclick="addNodeToCanvas('end', 'End: Completed')">
+                            <i class="bi bi-check-circle-fill me-1"></i> End
+                        </button>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-1">
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="zoomIn()" title="Zoom In">
+                            <i class="bi bi-zoom-in"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="zoomOut()" title="Zoom Out">
+                            <i class="bi bi-zoom-out"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="zoomReset()" title="Reset Zoom">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2 ms-2" onclick="clearCanvas()" title="Clear Canvas">
+                            <i class="bi bi-trash"></i> Clear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Drawflow Editor Mount Point -->
+                <div id="drawflow"></div>
+
+                <!-- Bottom Helper Bar -->
+                <div class="d-flex justify-content-between align-items-center mt-2 pt-2 text-muted small" style="font-size: 0.78rem;">
+                    <div>
+                        <i class="bi bi-mouse me-1"></i> <strong>Tip:</strong> Drag nodes to reposition. Connect output ports (dots) to input ports. Double-click node label to edit.
+                    </div>
+                    <div id="canvasStats">
+                        <span id="canvasNodeCount">0</span> nodes &bull; <span id="canvasEdgeCount">0</span> connections
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden CSRF token for AJAX -->
+<input type="hidden" id="csrfToken" value="{{ csrf_token() }}">
+
+<!-- Drawflow Vendor Script -->
+<script src="{{ url_for('static', filename='js/drawflow.min.js') }}"></script>
+
+<script>
+    // Initial data passed from Flask
+    const EDITOR_MODE = "{{ mode }}";
+    const FLOWCHART_ID = {{ flowchart.id if flowchart else 'null' }};
+    const INITIAL_GRAPH_JSON = {{ (flowchart.graph_data if flowchart else initial_graph)|tojson }};
+    const INITIAL_STEPS = {{ (initial_steps or [])|tojson }};
+
+    // State
+    let editor = null;
+    let steps = [];
+
+    // Initialize Drawflow Editor on DOM Ready
+    document.addEventListener("DOMContentLoaded", function() {
+        const container = document.getElementById("drawflow");
+        editor = new Drawflow(container);
+        editor.reroute = true;
+        editor.reroute_fix_curvature = true;
+        editor.force_first_input = false;
+        editor.start();
+
+        // Load initial graph into Drawflow
+        if (INITIAL_GRAPH_JSON) {
+            loadGraphIntoDrawflow(INITIAL_GRAPH_JSON);
+        }
+
+        // Initialize Step Builder List
+        if (INITIAL_STEPS && INITIAL_STEPS.length > 0) {
+            steps = INITIAL_STEPS;
+        } else if (INITIAL_GRAPH_JSON && INITIAL_GRAPH_JSON.nodes) {
+            steps = extractStepsFromGraph(INITIAL_GRAPH_JSON);
+        }
+        renderStepsUI();
+        updateStats();
+
+        // Listeners for changes in canvas to update stats
+        editor.on('nodeCreated', updateStats);
+        editor.on('nodeRemoved', updateStats);
+        editor.on('connectionCreated', updateStats);
+        editor.on('connectionRemoved', updateStats);
+
+        // Double-click to edit node label
+        container.addEventListener('dblclick', function(e) {
+            const labelEl = e.target.closest('.node-label');
+            if (labelEl) {
+                const currentText = labelEl.textContent.trim();
+                const newText = prompt("Edit step text:", currentText);
+                if (newText && newText.trim()) {
+                    labelEl.textContent = newText.trim();
+                    // Update internal data
+                    const nodeEl = labelEl.closest('.drawflow-node');
+                    if (nodeEl) {
+                        const nodeId = nodeEl.id.replace('node-', '');
+                        if (editor.drawflow.drawflow.Home.data[nodeId]) {
+                            editor.drawflow.drawflow.Home.data[nodeId].data.label = newText.trim();
+                        }
+                    }
+                    updateStats();
+                }
+            }
+        });
+
+        // Button Event Handlers
+        document.getElementById("btnAddProcessStep").addEventListener("click", function() {
+            steps.push({
+                type: "process",
+                label: `Step ${steps.length + 1}: Action Required`
+            });
+            renderStepsUI();
+        });
+
+        document.getElementById("btnAddDecisionStep").addEventListener("click", function() {
+            steps.push({
+                type: "decision",
+                label: "Condition Verified?",
+                yes_target: steps.length + 2,
+                no_target: steps.length + 3
+            });
+            renderStepsUI();
+        });
+
+        document.getElementById("btnGenerateFromSteps").addEventListener("click", generateDiagramFromStepsUI);
+        document.getElementById("btnSaveFlowchart").addEventListener("click", saveFlowchartToServer);
+    });
+
+    // =========================================================================
+    // STEP BUILDER FUNCTIONS
+    // =========================================================================
+    function renderStepsUI() {
+        const container = document.getElementById("stepsContainer");
+        container.innerHTML = "";
+        document.getElementById("stepCountBadge").textContent = `${steps.length} Steps`;
+
+        steps.forEach((step, idx) => {
+            const stepNum = idx + 1;
+            const card = document.createElement("div");
+            card.className = "border rounded-3 p-2 bg-light position-relative";
+
+            const badgeColor = {
+                start: "bg-success text-white",
+                process: "bg-primary text-white",
+                decision: "bg-warning text-dark",
+                end: "bg-danger text-white"
+            }[step.type] || "bg-secondary text-white";
+
+            let decisionHtml = "";
+            if (step.type === "decision") {
+                decisionHtml = `
+                    <div class="row g-1 mt-1 small">
+                        <div class="col-6">
+                            <label class="form-label mb-0" style="font-size: 0.72rem;">Yes &rarr; Step:</label>
+                            <input type="number" class="form-control form-control-sm py-0 step-yes-target" data-idx="${idx}" value="${step.yes_target || (stepNum + 1)}" min="1">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-0" style="font-size: 0.72rem;">No &rarr; Step:</label>
+                            <input type="number" class="form-control form-control-sm py-0 step-no-target" data-idx="${idx}" value="${step.no_target || (stepNum + 2)}" min="1">
+                        </div>
+                    </div>
+                `;
+            }
+
+            card.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="badge ${badgeColor} py-0 px-2" style="font-size: 0.7rem;">
+                        #${stepNum} ${step.type.toUpperCase()}
+                    </span>
+                    <button type="button" class="btn btn-link text-danger p-0 border-0" onclick="removeStep(${idx})" title="Remove Step">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
+                </div>
+                <input type="text" class="form-control form-control-sm step-label-input" data-idx="${idx}" value="${escapeHtml(step.label)}">
+                ${decisionHtml}
+            `;
+            container.appendChild(card);
+        });
+
+        // Attach change listeners to step inputs
+        document.querySelectorAll(".step-label-input").forEach(input => {
+            input.addEventListener("input", function() {
+                const idx = parseInt(this.getAttribute("data-idx"));
+                steps[idx].label = this.value;
+            });
+        });
+
+        document.querySelectorAll(".step-yes-target").forEach(input => {
+            input.addEventListener("change", function() {
+                const idx = parseInt(this.getAttribute("data-idx"));
+                steps[idx].yes_target = parseInt(this.value);
+            });
+        });
+
+        document.querySelectorAll(".step-no-target").forEach(input => {
+            input.addEventListener("change", function() {
+                const idx = parseInt(this.getAttribute("data-idx"));
+                steps[idx].no_target = parseInt(this.value);
+            });
+        });
+    }
+
+    function removeStep(idx) {
+        steps.splice(idx, 1);
+        renderStepsUI();
+    }
+
+    function extractStepsFromGraph(graph) {
+        if (!graph || !graph.nodes) return [];
+        return graph.nodes.map((n, i) => ({
+            type: n.type,
+            label: n.label,
+            yes_target: i + 2,
+            no_target: i + 3
+        }));
+    }
+
+    // =========================================================================
+    // GENERATE FROM STEPS -> CANVAS LAYOUT
+    // =========================================================================
+    function generateDiagramFromStepsUI() {
+        if (!steps || steps.length === 0) {
+            showAlert("Please add at least one step before generating.", "warning");
+            return;
+        }
+
+        const csrfToken = document.getElementById("csrfToken").value;
+        fetch("{{ url_for('flowcharts.api_generate_from_steps') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken
+            },
+            body: JSON.stringify({ steps: steps })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.graph_data) {
+                loadGraphIntoDrawflow(data.graph_data);
+                showAlert(`Successfully generated diagram with ${data.graph_data.nodes.length} nodes!`, "success");
+            } else {
+                showAlert(data.message || "Failed to generate diagram from steps.", "danger");
+            }
+        })
+        .catch(err => {
+            console.error("Generate error:", err);
+            showAlert("Failed communicating with diagram generator API.", "danger");
+        });
+    }
+
+    // =========================================================================
+    // DRAWFLOW CANVAS HELPERS
+    // =========================================================================
+    function loadGraphIntoDrawflow(graph) {
+        editor.clear();
+        if (graph.drawflow && graph.drawflow.Home && Object.keys(graph.drawflow.Home.data).length > 0) {
+            editor.import(graph);
+        } else if (graph.nodes) {
+            // Reconstruct nodes
+            const nodeMap = {};
+            graph.nodes.forEach(n => {
+                const nid = n.id;
+                const ntype = n.type || "process";
+                const label = n.label || `Step ${nid}`;
+                const x = n.x || 100;
+                const y = n.y || 100;
+
+                const numInputs = (ntype === "start") ? 0 : 1;
+                const numOutputs = (ntype === "end") ? 0 : ((ntype === "decision") ? 2 : 1);
+
+                const html = `
+                    <div class='node-card-body node-type-${ntype}'>
+                        <div class='node-header'><span class='badge ${getNodeBadgeClass(ntype)}'>${ntype.toUpperCase()}</span></div>
+                        <div class='node-label fw-bold mt-1'>${escapeHtml(label)}</div>
+                    </div>
+                `;
+                const createdId = editor.addNode(ntype, numInputs, numOutputs, x, y, `node-${ntype}`, { label: label, type: ntype }, html);
+                nodeMap[nid] = createdId;
+            });
+
+            // Reconstruct edges
+            if (graph.edges) {
+                graph.edges.forEach(e => {
+                    const src = nodeMap[e.source] || e.source;
+                    const tgt = nodeMap[e.target] || e.target;
+                    const isNo = (e.label && (e.label.toLowerCase() === "no" || e.label.toLowerCase() === "false"));
+                    const outPort = isNo ? "output_2" : "output_1";
+                    try {
+                        editor.addConnection(src, tgt, outPort, "input_1");
+                    } catch (err) {
+                        console.warn("Connection error:", err);
+                    }
+                });
+            }
+        }
+        updateStats();
+    }
+
+    function addNodeToCanvas(type, defaultLabel) {
+        const numInputs = (type === "start") ? 0 : 1;
+        const numOutputs = (type === "end") ? 0 : ((type === "decision") ? 2 : 1);
+        const x = 200 + Math.floor(Math.random() * 200);
+        const y = 150 + Math.floor(Math.random() * 150);
+
+        const html = `
+            <div class='node-card-body node-type-${type}'>
+                <div class='node-header'><span class='badge ${getNodeBadgeClass(type)}'>${type.toUpperCase()}</span></div>
+                <div class='node-label fw-bold mt-1'>${escapeHtml(defaultLabel)}</div>
+            </div>
+        `;
+        editor.addNode(type, numInputs, numOutputs, x, y, `node-${type}`, { label: defaultLabel, type: type }, html);
+        updateStats();
+    }
+
+    function getNodeBadgeClass(type) {
+        return {
+            start: "bg-success text-white",
+            process: "bg-primary text-white",
+            decision: "bg-warning text-dark",
+            end: "bg-danger text-white"
+        }[type] || "bg-secondary text-white";
+    }
+
+    function zoomIn() { editor.zoom_in(); }
+    function zoomOut() { editor.zoom_out(); }
+    function zoomReset() { editor.zoom_reset(); }
+    function clearCanvas() {
+        if (confirm("Clear all nodes and connections from the canvas?")) {
+            editor.clear();
+            updateStats();
+        }
+    }
+
+    function updateStats() {
+        try {
+            const data = editor.export();
+            const home = data.drawflow.Home.data;
+            const nodes = Object.keys(home);
+            let edgeCount = 0;
+            nodes.forEach(nid => {
+                const outputs = home[nid].outputs;
+                Object.keys(outputs).forEach(outKey => {
+                    edgeCount += outputs[outKey].connections.length;
+                });
+            });
+
+            document.getElementById("canvasNodeCount").textContent = nodes.length;
+            document.getElementById("canvasEdgeCount").textContent = edgeCount;
+        } catch (e) {
+            // Safe fallback
+        }
+    }
+
+    // =========================================================================
+    // SERIALIZATION & SAVE FLOWCHART (Requirement 6, 7, 8, 9)
+    // =========================================================================
+    function saveFlowchartToServer() {
+        const title = document.getElementById("fcTitle").value.trim();
+        const description = document.getElementById("fcDescription").value.trim();
+        const noticeSelect = document.getElementById("fcNoticeId");
+        const noticeId = noticeSelect ? noticeSelect.value : null;
+
+        if (!title) {
+            showAlert("Flowchart title is required.", "danger");
+            document.getElementById("fcTitle").focus();
+            return;
+        }
+
+        // Export Drawflow state
+        const drawflowExport = editor.export();
+        const homeData = drawflowExport.drawflow.Home.data;
+        const nodeKeys = Object.keys(homeData);
+
+        if (nodeKeys.length === 0) {
+            showAlert("Please create at least one node before saving.", "danger");
+            return;
+        }
+
+        // Build normalized nodes and edges
+        const nodes = [];
+        const edges = [];
+
+        nodeKeys.forEach(nid => {
+            const n = homeData[nid];
+            // Extract label
+            let label = n.data.label;
+            if (!label) {
+                const div = document.createElement("div");
+                div.innerHTML = n.html;
+                const labelEl = div.querySelector(".node-label");
+                label = labelEl ? labelEl.textContent.trim() : `Step ${nid}`;
+            }
+
+            nodes.push({
+                id: String(nid),
+                type: n.name || "process",
+                label: label,
+                x: n.pos_x,
+                y: n.pos_y
+            });
+
+            // Extract connections
+            const outputs = n.outputs;
+            Object.keys(outputs).forEach(outKey => {
+                const conns = outputs[outKey].connections;
+                conns.forEach((c, idx) => {
+                    const isDecision = (n.name === "decision");
+                    const edgeLabel = isDecision ? (outKey === "output_1" ? "Yes" : "No") : "";
+                    edges.push({
+                        id: `e_${nid}_${c.node}_${outKey}_${idx}`,
+                        source: String(nid),
+                        target: String(c.node),
+                        label: edgeLabel
+                    });
+                });
+            });
+        });
+
+        const payload = {
+            title: title,
+            description: description,
+            notice_id: noticeId ? parseInt(noticeId) : null,
+            graph_data: {
+                nodes: nodes,
+                edges: edges,
+                drawflow: drawflowExport
+            }
+        };
+
+        const csrfToken = document.getElementById("csrfToken").value;
+        const targetUrl = (EDITOR_MODE === "edit") 
+            ? "{{ url_for('flowcharts.update_flowchart', flowchart_id=flowchart.id if flowchart else 0) }}"
+            : "{{ url_for('flowcharts.create_flowchart') }}";
+
+        const saveBtn = document.getElementById("btnSaveFlowchart");
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = "<span class='spinner-border spinner-border-sm me-1'></span> Saving...";
+
+        fetch(targetUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = "<i class='bi bi-save-fill me-1'></i> " + ((EDITOR_MODE === "edit") ? "Save Changes" : "Publish Flowchart");
+
+            if (data.message && (data.flowchart || data.redirect_url)) {
+                showAlert(data.message, "success");
+                setTimeout(() => {
+                    window.location.href = data.redirect_url || "{{ url_for('flowcharts.admin_flowcharts') }}";
+                }, 800);
+            } else {
+                showAlert(data.message || "Failed to save flowchart.", "danger");
+            }
+        })
+        .catch(err => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = "<i class='bi bi-save-fill me-1'></i> " + ((EDITOR_MODE === "edit") ? "Save Changes" : "Publish Flowchart");
+            console.error("Save error:", err);
+            showAlert("Error communicating with server while saving flowchart.", "danger");
+        });
+    }
+
+    function showAlert(msg, type) {
+        const box = document.getElementById("editorAlertBox");
+        const msgEl = document.getElementById("editorAlertMsg");
+        box.className = `alert alert-${type} alert-dismissible fade show`;
+        msgEl.textContent = msg;
+        box.classList.remove("d-none");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+</script>
+{% endblock %}

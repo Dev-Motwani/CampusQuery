@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit Notice' if notice else 'Create Notice' }} - Admin Panel | CampusQuery{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb & Header -->
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb small mb-1">
+                <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('admin.list_notices') }}">Notices</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ 'Edit Notice' if notice else 'New Circular' }}</li>
+            </ol>
+        </nav>
+        <h2 class="fw-bold mb-1">{{ 'Edit College Notice' if notice else 'Create College Circular' }}</h2>
+        <p class="text-muted small mb-0">
+            {{ 'Update announcement details, eligibility, required documents, publication status, and multi-milestone deadlines.' if notice else 'Draft or publish an official campus notice with academic criteria and milestone deadlines.' }}
+        </p>
+    </div>
+
+    <form method="POST" action="{{ action_url }}" id="noticeForm" enctype="multipart/form-data">
+        <!-- CSRF Token -->
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="row g-4">
+            <!-- Left Column: Core Notice & Academic Criteria -->
+            <div class="col-lg-8">
+                <!-- Section 1: Core Content -->
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-file-earmark-text text-primary me-2"></i>Notice Announcement Details</h5>
+
+                    <!-- Notice Title -->
+                    <div class="mb-3">
+                        <label for="title" class="form-label small fw-semibold">Notice Title <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="title" name="title"
+                               value="{{ notice.title if notice else '' }}"
+                               placeholder="e.g. Schedule for University Semester Examination Form Submission 2026" required autofocus>
+                    </div>
+
+                    <!-- Brief Summary -->
+                    <div class="mb-3">
+                        <label for="summary" class="form-label small fw-semibold">Short Description / Summary</label>
+                        <input type="text" class="form-control" id="summary" name="summary"
+                               value="{{ notice.summary if notice and notice.summary else '' }}"
+                               placeholder="A concise 1-2 sentence lead overview shown in notification cards and student search results...">
+                    </div>
+
+                    <!-- Full Instructions / Content -->
+                    <div class="mb-3">
+                        <label for="content" class="form-label small fw-semibold">Full Instructions & Circular Content <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="content" name="content" rows="8"
+                                  placeholder="Enter the full official text of the circular, operational directives, guidelines, and fee details..." required>{{ notice.content if notice else '' }}</textarea>
+                        <div class="form-text small text-muted">Paragraph breaks and line formatting are preserved.</div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Academic Criteria & Submission Guidelines (Requirement 3) -->
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-mortarboard text-primary me-2"></i>Academic Requirements & Submission Directives</h5>
+
+                    <!-- Eligibility Criteria -->
+                    <div class="mb-3">
+                        <label for="eligibility" class="form-label small fw-semibold">Student Eligibility Criteria</label>
+                        <textarea class="form-control" id="eligibility" name="eligibility" rows="2"
+                                  placeholder="e.g. Regular and ATKT students of TYBCA Semester 5 & 6 with minimum 75% attendance...">{{ notice.eligibility if notice and notice.eligibility else '' }}</textarea>
+                    </div>
+
+                    <!-- Required Documents -->
+                    <div class="mb-3">
+                        <label for="required_documents" class="form-label small fw-semibold">Required Verification Documents</label>
+                        <textarea class="form-control" id="required_documents" name="required_documents" rows="2"
+                                  placeholder="e.g. College Identity Card, Previous Semester Marksheet Copy, Fee Payment Receipt, Passport Photo...">{{ notice.required_documents if notice and notice.required_documents else '' }}</textarea>
+                    </div>
+
+                    <!-- Submission Instructions -->
+                    <div class="mb-3">
+                        <label for="submission_instructions" class="form-label small fw-semibold">Submission Instructions & Counter Procedures</label>
+                        <textarea class="form-control" id="submission_instructions" name="submission_instructions" rows="2"
+                                  placeholder="e.g. Submit printed application with attested documents at Counter No. 4, Ground Floor, Admin Block...">{{ notice.submission_instructions if notice and notice.submission_instructions else '' }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Section 3: Multi-Milestone Deadlines (Requirements 6 & 7) -->
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div>
+                            <h5 class="fw-bold mb-0"><i class="bi bi-calendar2-week text-primary me-2"></i>Scheduled Milestones & Deadlines</h5>
+                            <small class="text-muted">Opening dates, last dates, verification dates, event dates, and custom milestones</small>
+                        </div>
+                        <div class="d-flex gap-1 flex-wrap">
+                            <!-- Preset Buttons for Easy Typing -->
+                            <button type="button" class="btn btn-xs btn-outline-secondary add-preset-btn" data-preset="Opening Date / Start Window">
+                                + Opening Date
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline-secondary add-preset-btn" data-preset="Last Date (Without Late Fee)">
+                                + Last Date
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline-secondary add-preset-btn" data-preset="Document Verification Date">
+                                + Verification Date
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline-secondary add-preset-btn" data-preset="Event Date / Examination">
+                                + Event Date
+                            </button>
+                            <button type="button" class="btn btn-sm btn-primary fw-semibold ms-1" id="addMilestoneBtn">
+                                <i class="bi bi-plus-lg me-1"></i> Add Custom Milestone
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Milestone Container -->
+                    <div id="milestonesContainer">
+                        {% if notice and notice.deadlines %}
+                            {% for d in notice.deadlines %}
+                                <div class="milestone-card border rounded-3 p-3 bg-light mb-3 position-relative">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="badge bg-primary milestone-badge">Milestone #{{ loop.index }}</span>
+                                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 remove-milestone-btn" title="Remove milestone">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-md-7">
+                                            <label class="form-label small fw-semibold">Milestone Name <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control form-control-sm" name="milestone_name[]" value="{{ d.milestone_name }}" placeholder="e.g. Last Date for Online Submission" required>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label small fw-semibold">Due Date & Time <span class="text-danger">*</span></label>
+                                            <input type="datetime-local" class="form-control form-control-sm" name="milestone_due_date[]" value="{{ d.due_date.strftime('%Y-%m-%dT%H:%M') if d.due_date else '' }}" required>
+                                        </div>
+                                    </div>
+                                    <div class="row g-2">
+                                        <div class="col-md-5">
+                                            <label class="form-label small fw-semibold">Responsible Office</label>
+                                            <select class="form-select form-select-sm" name="milestone_office_id[]">
+                                                <option value="">-- None / Online --</option>
+                                                {% for off in offices %}
+                                                    <option value="{{ off.id }}" {{ 'selected' if d.office_id == off.id else '' }}>
+                                                        {{ off.office_name }} ({{ off.building_room }})
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-semibold">Milestone Status</label>
+                                            <select class="form-select form-select-sm" name="milestone_status[]">
+                                                <option value="upcoming" {{ 'selected' if d.status == 'upcoming' else '' }}>Upcoming</option>
+                                                <option value="ongoing" {{ 'selected' if d.status == 'ongoing' else '' }}>Ongoing</option>
+                                                <option value="extended" {{ 'selected' if d.status == 'extended' else '' }}>Extended</option>
+                                                <option value="closed" {{ 'selected' if d.status == 'closed' else '' }}>Closed</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-semibold">Instructions / Desk</label>
+                                            <input type="text" class="form-control form-control-sm" name="milestone_instructions[]" value="{{ d.instructions or '' }}" placeholder="e.g. Counter 3, Admin Wing">
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+
+                    <div id="noMilestonesMsg" class="text-muted small text-center py-3 {{ 'd-none' if notice and notice.deadlines else '' }}">
+                        <i class="bi bi-calendar-x fs-4 d-block mb-1"></i>
+                        No deadlines attached yet. Click <strong>"Add Milestone"</strong> or one of the preset buttons above.
+                    </div>
+                </div>
+
+                <!-- Section 4: Document Attachments (PDF / DOCX) -->
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="fw-bold mb-0"><i class="bi bi-paperclip text-primary me-2"></i>Official Document Attachments</h5>
+                            <small class="text-muted">Attach circular guidelines, application forms, or fee schedules (.pdf, .docx up to 10 MB)</small>
+                        </div>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                            <i class="bi bi-shield-check me-1"></i>Text Extraction & AI Ready
+                        </span>
+                    </div>
+
+                    {% if notice and notice.notice_documents %}
+                        <div class="mb-4">
+                            <label class="form-label small fw-semibold text-dark mb-2">Currently Attached Documents</label>
+                            <div class="list-group list-group-flush border rounded-3 overflow-hidden">
+                                {% for nd in notice.notice_documents %}
+                                    <div class="list-group-item p-3 d-flex flex-wrap justify-content-between align-items-center gap-2 bg-light">
+                                        <div class="d-flex align-items-center">
+                                            <div class="rounded-3 p-2 me-3 fs-4 {{ 'bg-danger-subtle text-danger' if nd.document.is_pdf else 'bg-primary-subtle text-primary' }}">
+                                                <i class="bi {{ 'bi-file-earmark-pdf-fill' if nd.document.is_pdf else 'bi-file-earmark-word-fill' }}"></i>
+                                            </div>
+                                            <div>
+                                                <div class="d-flex align-items-center gap-2 mb-1">
+                                                    <strong class="text-dark">{{ nd.display_label or nd.document.original_name }}</strong>
+                                                    <span class="badge {{ nd.document.label_badge_class }} small">{{ nd.document.label }}</span>
+                                                    <span class="badge {{ nd.document.extraction_badge.badge_class }} small">{{ nd.document.extraction_badge.label }}</span>
+                                                </div>
+                                                <small class="text-muted">
+                                                    {{ nd.document.file_size_kb }} KB &bull; {{ 'PDF' if nd.document.is_pdf else 'Word' }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <a href="{{ url_for('documents.download_document', document_id=nd.document.id) }}" class="btn btn-outline-primary btn-sm px-3" target="_blank">
+                                                <i class="bi bi-download me-1"></i> Download
+                                            </a>
+                                            <div class="form-check form-switch ms-2" title="Check to remove this attachment upon saving">
+                                                <input class="form-check-input" type="checkbox" name="detach_document_ids[]" value="{{ nd.document.id }}" id="detach_{{ nd.document.id }}">
+                                                <label class="form-check-label small text-danger fw-semibold" for="detach_{{ nd.document.id }}">Remove</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Upload New Documents -->
+                    <div class="p-3 bg-light rounded-3 border">
+                        <label class="form-label small fw-semibold text-dark mb-2">
+                            <i class="bi bi-cloud-arrow-up text-primary me-1"></i>{{ 'Attach Additional Documents' if notice and notice.notice_documents else 'Upload Official Attachment(s)' }}
+                        </label>
+                        
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-7">
+                                <label for="document_files" class="form-label small text-muted">Select File(s) (.pdf or .docx)</label>
+                                <input type="file" class="form-control form-control-sm" id="document_files" name="document_files" accept=".pdf,.docx" multiple>
+                            </div>
+                            <div class="col-md-5">
+                                <label for="document_label" class="form-label small text-muted">Document Type / Label</label>
+                                <select class="form-select form-select-sm" id="document_label" name="document_label">
+                                    <option value="Supporting Document" selected>Supporting Document</option>
+                                    <option value="Official Form">Official Form</option>
+                                    <option value="Required-Document Checklist">Required-Document Checklist</option>
+                                    <option value="Detailed Instructions">Detailed Instructions</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <label for="document_display_label" class="form-label small text-muted">Custom Display Name (Optional)</label>
+                            <input type="text" class="form-control form-control-sm" id="document_display_label" name="document_display_label" placeholder="e.g. University Hall Ticket Clearance Circular 2026">
+                        </div>
+
+                        <div class="form-text small text-muted mt-2">
+                            <i class="bi bi-info-circle me-1"></i>You can select multiple files at once. Uploaded files are automatically processed for text extraction, queryable by the AI Assistant, and protected under publication access rules.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Settings & Metadata -->
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-sliders text-primary me-2"></i>Notice Governance</h5>
+
+                    <!-- Category -->
+                    <div class="mb-3">
+                        <label for="category_id" class="form-label small fw-semibold">Notice Category <span class="text-danger">*</span></label>
+                        <select class="form-select" id="category_id" name="category_id" required>
+                            <option value="">-- Select Category --</option>
+                            {% for cat in categories %}
+                                <option value="{{ cat.id }}" {{ 'selected' if notice and notice.category_id == cat.id else '' }}>
+                                    {{ cat.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Department / Office Information (Requirement 3) -->
+                    <div class="mb-3">
+                        <label for="office_id" class="form-label small fw-semibold">Issuing Office / Department</label>
+                        <select class="form-select" id="office_id" name="office_id">
+                            <option value="">-- General Campus Administration --</option>
+                            {% for off in offices %}
+                                <option value="{{ off.id }}" {{ 'selected' if notice and notice.office_id == off.id else '' }}>
+                                    {{ off.office_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text small">Primary office handling this circular.</div>
+                    </div>
+
+                    <!-- Priority Level -->
+                    <div class="mb-3">
+                        <label for="priority" class="form-label small fw-semibold">Priority Level</label>
+                        <select class="form-select" id="priority" name="priority">
+                            <option value="low" {{ 'selected' if notice and notice.priority == 'low' else '' }}>Low</option>
+                            <option value="medium" {{ 'selected' if not notice or notice.priority == 'medium' else '' }}>Medium (Default)</option>
+                            <option value="high" {{ 'selected' if notice and notice.priority == 'high' else '' }}>High</option>
+                            <option value="urgent" {{ 'selected' if notice and notice.priority == 'urgent' else '' }}>Urgent</option>
+                        </select>
+                    </div>
+
+                    <!-- Publication Status (Requirement 4) -->
+                    <div class="mb-3">
+                        <label for="status" class="form-label small fw-semibold">Publication Lifecycle State</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="draft" {{ 'selected' if not notice or notice.status == 'draft' else '' }}>
+                                Draft (Hidden from students & search)
+                            </option>
+                            <option value="published" {{ 'selected' if notice and notice.status == 'published' else '' }}>
+                                Published (Live on student portal)
+                            </option>
+                            {% if notice %}
+                                <option value="archived" {{ 'selected' if notice.status == 'archived' else '' }}>
+                                    Archived (Historical reference only)
+                                </option>
+                            {% endif %}
+                        </select>
+                        <div class="form-text small">Notice status is decoupled from deadline milestone status.</div>
+                    </div>
+
+                    <!-- Notice Expiration Date -->
+                    <div class="mb-3">
+                        <label for="expires_at" class="form-label small fw-semibold">Notice Expiration Date (Optional)</label>
+                        <input type="datetime-local" class="form-control" id="expires_at" name="expires_at"
+                               value="{{ notice.expires_at.strftime('%Y-%m-%dT%H:%M') if notice and notice.expires_at else '' }}">
+                        <div class="form-text small">After this date, the notice is labeled expired on the dashboard.</div>
+                    </div>
+
+                    <!-- Republish Option for existing published notice -->
+                    {% if notice and notice.is_published %}
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="republish" name="republish" value="1">
+                            <label class="form-check-label small" for="republish">
+                                Reset publication timestamp to right now
+                            </label>
+                            <div class="form-text small text-muted">
+                                If unchecked, original publication date ({{ notice.published_at.strftime('%d-%b-%Y') if notice.published_at else '-' }}) is preserved and only updated timestamp changes.
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Submit & Cancel Buttons -->
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary fw-semibold py-2">
+                            <i class="bi bi-save me-1"></i> {{ 'Save Notice Changes' if notice else 'Create Notice' }}
+                        </button>
+                        <a href="{{ url_for('admin.list_notices') }}" class="btn btn-outline-secondary py-2">
+                            Cancel
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Guidance Box -->
+                <div class="card border-0 shadow-sm rounded-4 p-3 bg-light">
+                    <h6 class="fw-bold mb-2 small"><i class="bi bi-lightbulb text-warning me-1"></i>Campus Policy Guidelines</h6>
+                    <ul class="text-muted small ps-3 mb-0">
+                        <li><strong>Draft:</strong> Stored safely in database but completely hidden from student views and AI queries.</li>
+                        <li><strong>Timestamps:</strong> Updating an already-published notice records <code>updated_at</code> without altering historical <code>published_at</code>.</li>
+                        <li><strong>Offices:</strong> All sample offices are designated for testing and demonstrations.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Template for Dynamic Milestone Row -->
+<template id="milestoneTemplate">
+    <div class="milestone-card border rounded-3 p-3 bg-light mb-3 position-relative">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="badge bg-primary milestone-badge">Milestone #</span>
+            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 remove-milestone-btn" title="Remove milestone">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-md-7">
+                <label class="form-label small fw-semibold">Milestone Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm milestone-name-input" name="milestone_name[]" placeholder="e.g. Last Date for Online Submission" required>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label small fw-semibold">Due Date & Time <span class="text-danger">*</span></label>
+                <input type="datetime-local" class="form-control form-control-sm" name="milestone_due_date[]" required>
+            </div>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-5">
+                <label class="form-label small fw-semibold">Responsible Office</label>
+                <select class="form-select form-select-sm" name="milestone_office_id[]">
+                    <option value="">-- None / Online --</option>
+                    {% for off in offices %}
+                        <option value="{{ off.id }}">{{ off.office_name }} ({{ off.building_room }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Milestone Status</label>
+                <select class="form-select form-select-sm" name="milestone_status[]">
+                    <option value="upcoming" selected>Upcoming</option>
+                    <option value="ongoing">Ongoing</option>
+                    <option value="extended">Extended</option>
+                    <option value="closed">Closed</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Instructions / Desk</label>
+                <input type="text" class="form-control form-control-sm" name="milestone_instructions[]" placeholder="e.g. Counter 3, Admin Wing">
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const container = document.getElementById("milestonesContainer");
+    const addBtn = document.getElementById("addMilestoneBtn");
+    const template = document.getElementById("milestoneTemplate");
+    const noMsg = document.getElementById("noMilestonesMsg");
+
+    function updateBadges() {
+        const cards = container.querySelectorAll(".milestone-card");
+        cards.forEach((card, idx) => {
+            const badge = card.querySelector(".milestone-badge");
+            if (badge) {
+                badge.textContent = `Milestone #${idx + 1}`;
+            }
+        });
+        if (cards.length === 0) {
+            noMsg.classList.remove("d-none");
+        } else {
+            noMsg.classList.add("d-none");
+        }
+    }
+
+    function addMilestone(name = "") {
+        const clone = template.content.cloneNode(true);
+        if (name) {
+            const input = clone.querySelector(".milestone-name-input");
+            if (input) input.value = name;
+        }
+        container.appendChild(clone);
+        updateBadges();
+    }
+
+    addBtn.addEventListener("click", function () {
+        addMilestone();
+    });
+
+    // Preset buttons
+    document.querySelectorAll(".add-preset-btn").forEach(btn => {
+        btn.addEventListener("click", function () {
+            const presetName = this.getAttribute("data-preset");
+            addMilestone(presetName);
+        });
+    });
+
+    container.addEventListener("click", function (e) {
+        if (e.target.closest(".remove-milestone-btn")) {
+            const card = e.target.closest(".milestone-card");
+            if (card) {
+                card.remove();
+                updateBadges();
+            }
+        }
+    });
+
+    updateBadges();
+});
+</script>
+{% endblock %}
